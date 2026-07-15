@@ -660,17 +660,17 @@ define('U4', 'Equites Legati');
 define('U5', 'Equites Imperatoris');
 define('U6', 'Equites Caesaris');
 define('U7', 'Bélier');
-define('U8', 'Catapulte de feu');
+define('U8', 'Catapulte de Feu');
 define('U9', 'Sénateur');
 define('U10', 'Colon');
 
 //TEUTON UNITS
-define('U11', 'Combattant au gourdin');
-define('U12', 'Combattant à la lance');
-define('U13', 'Combattant à la hache');
+define('U11', 'Combattant au Gourdin');
+define('U12', 'Combattant à la Lance');
+define('U13', 'Combattant à la Hache');
 define('U14', 'Éclaireur');
 define('U15', 'Paladin');
-define('U16', 'Cavalier teuton');
+define('U16', 'Cavalier Teuton');
 define('U17', 'Bélier');
 define('U18', 'Catapulte');
 define('U19', 'Chef');
@@ -678,14 +678,14 @@ define('U20', 'Colon');
 
 //GAUL UNITS
 define('U21', 'Phalange');
-define('U22', 'Combattant à l\'épée');
+define('U22', 'Combattant à l\'Épée');
 define('U23', 'Éclaireur');
-define('U24', 'Foudre de Teutatès');
-define('U25', 'Druide cavalier');
-define('U26', 'Hédui');
+define('U24', 'Éclair de Toutatis');
+define('U25', 'Cavalier Druide');
+define('U26', 'Hédouin');
 define('U27', 'Bélier');
 define('U28', 'Trébuchet');
-define('U29', 'Chef de tribu');
+define('U29', 'Chef de Tribu');
 define('U30', 'Colon');
 define('U99', 'Piège');
 
@@ -703,15 +703,15 @@ define('U40', 'Éléphant');
 
 //NATARS UNITS
 define('U41', 'Piquier');
-define('U42', 'Guerrier épineux');
+define('U42', 'Guerrier Épineux');
 define('U43', 'Garde');
-define('U44', 'Oiseaux de proie');
-define('U45', 'Cavalier à la hache');
-define('U46', 'Chevalier natarien');
-define('U47', 'Éléphant de guerre');
+define('U44', 'Oiseaux de Proie');
+define('U45', 'Cavalier à la Hache');
+define('U46', 'Chevalier Natarien');
+define('U47', 'Éléphant de Guerre');
 define('U48', 'Baliste');
-define('U49', 'Empereur natarien');
-define('U50', 'Colon natarien');
+define('U49', 'Empereur Natarien');
+define('U50', 'Colon Natarien');
 
 //INDEX.php
 define('LOGIN', 'Connexion');
