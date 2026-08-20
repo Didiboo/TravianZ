@@ -1,25 +1,4 @@
-﻿<?php
-
-// ============================================================
-// TRAVIANZ MI INSTANCE / SESSION BOOTSTRAP
-// ============================================================
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
-
-// config.php est à la racine de TravianZ
-require_once(__DIR__ . '/../../../config.php');
-
-// Chargement de la langue
-if (file_exists(__DIR__ . '/../../../Lang/loader.php')) {
-    require_once(__DIR__ . '/../../../Lang/loader.php');
-
-    if (defined('LANG') && function_exists('tz_load_language')) {
-        tz_load_language(LANG);
-    }
-}
-
+<?php
 #################################################################################
 ##              -= YOU MAY NOT REMOVE OR CHANGE THIS NOTICE =-                 ##
 ## --------------------------------------------------------------------------- ##
@@ -31,101 +10,70 @@ if (file_exists(__DIR__ . '/../../../Lang/loader.php')) {
 ##                                                                             ##
 #################################################################################
 
-// ---------------------------------------------------------------------------
-// CSRF / administration access
-// ---------------------------------------------------------------------------
+// #299: load CSRF helpers + admin_deny() before the access check below.
 require_once(__DIR__ . '/../csrf.php');
-
-if (empty($_SESSION['access']) || (int)$_SESSION['access'] < 9) {
-    admin_deny(
-        'You must be signed in as an administrator to view this page. ' .
-        'Your session may have expired — please return to the admin panel ' .
-        'and sign in again.'
-    );
+if (!isset($_SESSION)) {
+    session_start();
+}
+if (empty($_SESSION['access']) || $_SESSION['access'] < 9) {
+    admin_deny('You must be signed in as an administrator to view this page. Your session may have expired — please return to the admin panel and sign in again.');
 }
 
-// Ce fichier reçoit directement le POST : vérification CSRF obligatoire.
+// Issue #139: this Mod is POSTed to directly, so it must verify the CSRF token
+// itself (it does not go through admin.php's central csrf_verify()).
+require_once(__DIR__ . '/../csrf.php');
 csrf_verify();
 
-// ---------------------------------------------------------------------------
-// Database
-// ---------------------------------------------------------------------------
-require_once(__DIR__ . '/../../Database.php');
+include_once __DIR__ . "/../../Database.php";
 
-// ---------------------------------------------------------------------------
-// Input
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Input
+ * --------------------------------------------------------------------------- */
 $id = (int)($_POST['id'] ?? 0);
-
 if ($id <= 0) {
-    header('Location: ../../../Admin/admin.php');
+    header("Location: ../../../Admin/admin.php");
     exit;
 }
 
-// ---------------------------------------------------------------------------
-// Update a1-a8 / b1-b8
-// ---------------------------------------------------------------------------
-$fields = [];
+$village = $database->getVillage($id);
 
+/* ---------------------------------------------------------------------------
+ * Update a1-a8 / b1-b8
+ * --------------------------------------------------------------------------- */
+$fields = [];
 for ($i = 1; $i <= 8; $i++) {
     $a = (int)($_POST['a' . $i] ?? 0);
     $b = (int)($_POST['b' . $i] ?? 0);
-
-    // Empêche les valeurs négatives.
-    $a = max(0, $a);
-    $b = max(0, $b);
-
-    $fields[] = "a{$i} = {$a}";
-    $fields[] = "b{$i} = {$b}";
+    $fields[] = "a$i = $a";
+    $fields[] = "b$i = $b";
 }
 
-$query = sprintf(
-    'UPDATE %sabdata SET %s WHERE vref = %d',
-    TB_PREFIX,
-    implode(', ', $fields),
-    $id
-);
+$q = "UPDATE " . TB_PREFIX . "abdata SET " . implode(", ", $fields) . " WHERE vref = $id";
+$database->query($q);
 
-$database->query($query);
-
-// ---------------------------------------------------------------------------
-// Admin log
-// ---------------------------------------------------------------------------
-$adminId = (int)($_SESSION['id'] ?? 0);
+/* ---------------------------------------------------------------------------
+ * Log admin - adaptat pentru structura ta:
+ * CREATE TABLE `s1_admin_log` (`id` int, `user` text, `log` text, `time` int)
+ * --------------------------------------------------------------------------- */
+$adminId = (string)(int)$_SESSION['id'];
 $time = time();
 
-// Récupération du village pour le journal d'administration.
-$village = $database->getVillage($id);
-
+// FIX: luăm numele satului
+$village = $database->getVillage($id); // dacă nu-l ai deja sus, lasă linia asta
 $villageName = $village['name'] ?? 'Village';
-$villageNameSafe = htmlspecialchars(
-    $villageName,
-    ENT_QUOTES,
-    'UTF-8'
-);
+$villageNameSafe = htmlspecialchars($villageName, ENT_QUOTES, 'UTF-8');
 
-$logText =
-    "Changed troop upgrade levels in village " .
-    "<a href='admin.php?p=village&did={$id}'>" .
-    $villageNameSafe .
-    '</a>';
+$logText = "Changed troop upgrade levels in village <a href='admin.php?p=village&did=$id'>$villageNameSafe</a>";
 
-$adminIdEsc = $database->escape((string)$adminId);
+// escapăm corect pentru coloana TEXT
+$adminIdEsc = $database->escape($adminId);
 $logEsc = $database->escape($logText);
 
 $database->query(
-    'INSERT INTO ' . TB_PREFIX .
-    'admin_log (`id`, `user`, `log`, `time`) ' .
-    "VALUES (0, '{$adminIdEsc}', '{$logEsc}', {$time})"
+    "INSERT INTO " . TB_PREFIX . "admin_log (`id`, `user`, `log`, `time`) " .
+    "VALUES (0, '$adminIdEsc', '$logEsc', $time)"
 );
 
-// ---------------------------------------------------------------------------
-// Return to village administration
-// ---------------------------------------------------------------------------
-header(
-    'Location: ../../../Admin/admin.php?p=village&did=' .
-    $id .
-    '&ab'
-);
+header("Location: ../../../Admin/admin.php?p=village&did=" . $id . "&ab");
 exit;
-
+?>

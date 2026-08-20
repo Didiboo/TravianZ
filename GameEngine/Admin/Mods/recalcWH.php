@@ -1,27 +1,8 @@
-﻿<?php
-
-// ============================================================
-// TRAVIANZ MI INSTANCE / SESSION BOOTSTRAP
-// ============================================================
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
-
-include_once(__DIR__ . '/../../config.php');
-
-if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
-    require_once(__DIR__ . '/../../Lang/loader.php');
-
-    if (defined('LANG') && function_exists('tz_load_language')) {
-        tz_load_language(LANG);
-    }
-}
-
+<?php
 #################################################################################
 ##              -= YOU MAY NOT REMOVE OR CHANGE THIS NOTICE =-                 ##
 ## --------------------------------------------------------------------------- ##
-##  Filename       recalcWH.php (salvează clădirile f1-f40)                    ##
+##  Filename       recalcWH.php (salvează clădirile (f1-f40)           		   ##
 ##  Type           BACKEND                                                     ##
 ##  Developed by:  aggenkeech                                                  ##
 ##  License:       TravianZ Project                                            ##
@@ -31,16 +12,16 @@ if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
 
 // #299: load CSRF helpers + admin_deny() before the access check below.
 require_once(__DIR__ . '/../csrf.php');
-
-if (empty($_SESSION['access']) || (int)$_SESSION['access'] < 9) {
-    admin_deny(
-        'You must be signed in as an administrator to view this page. ' .
-        'Your session may have expired — please return to the admin panel and sign in again.'
-    );
+if (!isset($_SESSION)) {
+    session_start();
+}
+if (empty($_SESSION['access']) || $_SESSION['access'] < 9) {
+    admin_deny('You must be signed in as an administrator to view this page. Your session may have expired — please return to the admin panel and sign in again.');
 }
 
 // Issue #139: this Mod is POSTed to directly, so it must verify the CSRF token
 // itself (it does not go through admin.php's central csrf_verify()).
+require_once(__DIR__ . '/../csrf.php');
 csrf_verify();
 
 include_once("../../config.php");
@@ -49,10 +30,8 @@ include_once("../../config.php");
 // Autoloader path
 // ---------------------------------------------------------------------------
 $autoprefix = '';
-
 for ($i = 0; $i < 5; $i++) {
     $autoprefix = str_repeat('../', $i);
-
     if (file_exists($autoprefix . 'autoloader.php')) {
         break;
     }
@@ -61,61 +40,48 @@ for ($i = 0; $i < 5; $i++) {
 include_once($autoprefix . "GameEngine/Database.php");
 
 // ---------------------------------------------------------------------------
-// Vérification admin
+// Verificare admin
 // ---------------------------------------------------------------------------
 $session = (int)($_POST['admid'] ?? 0);
-$id      = (int)($_POST['id'] ?? 0);
+$id = (int)($_POST['id'] ?? 0);
 
-if ($session <= 0 || $id <= 0) {
-    header("Location: ../../../Admin/admin.php?p=villages&e=bad");
+$admin = $database->getUserArray($session, 1);
+if (!$admin || (int)$admin['access'] !== 9) {
+    admin_deny('You must be signed in as an administrator to view this page. Your session may have expired — please return to the admin panel and sign in again.');
+}
+
+if ($id <= 0) {
+    header("Location: ../../../Admin/admin.php?p=villages");
     exit;
 }
 
-$admin = $database->getUserArray($session, 1);
-
-if (!$admin || (int)$admin['access'] !== 9) {
-    admin_deny(
-        'You must be signed in as an administrator to view this page. ' .
-        'Your session may have expired — please return to the admin panel and sign in again.'
-    );
-}
-
 // ---------------------------------------------------------------------------
-// Construire SET dynamique f1-f40
+// Construiește SET dinamic f1-f40
 // ---------------------------------------------------------------------------
 $sets = [];
-
 for ($i = 1; $i <= 40; $i++) {
     $lvl = (int)($_POST["id{$i}level"] ?? 0);
     $gid = (int)($_POST["id{$i}gid"] ?? 0);
-
-    $sets[] = "f{$i} = {$lvl}";
-    $sets[] = "f{$i}t = {$gid}";
+    $sets[] = "f$i = $lvl, f{$i}t = $gid";
 }
-
-$setSql = implode(', ', $sets);
+$setSql = implode(", ", $sets);
 
 // ---------------------------------------------------------------------------
 // Update
 // ---------------------------------------------------------------------------
-$database->query(
-    "UPDATE " . TB_PREFIX . "fdata
-     SET {$setSql}
-     WHERE vref = {$id}"
-);
+$database->query("UPDATE " . TB_PREFIX . "fdata SET $setSql WHERE vref = $id");
 
 // ---------------------------------------------------------------------------
 // Log admin
 // ---------------------------------------------------------------------------
 $adminId = (int)$_SESSION['id'];
 $time = time();
-
-$logText = "Recalculated buildings for village {$id}";
+$logText = "Recalculated buildings for village $id";
 $logEsc = $database->escape($logText);
 
 $database->query(
-    "INSERT INTO " . TB_PREFIX . "admin_log (`id`, `user`, `log`, `time`)
-     VALUES (0, '{$adminId}', '{$logEsc}', {$time})"
+    "INSERT INTO " . TB_PREFIX . "admin_log (`id`, `user`, `log`, `time`) " .
+    "VALUES (0, '$adminId', '$logEsc', $time)"
 );
 
 header("Location: ../../../Admin/admin.php?action=recountPop&did=" . $id);
