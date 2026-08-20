@@ -32,7 +32,10 @@ if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
 
 // ============================================================
 // CSRF + ADMIN ACCESS
-// ============================================================
+// #299: load CSRF helpers + admin_deny() before the access check below
+// Issue #139: this Mod is POSTed to directly, so it must verify the CSRF token
+// itself (it does not go through admin.php's central csrf_verify()).
+//============================================================
 require_once(__DIR__ . '/../csrf.php');
 
 if (empty($_SESSION['access']) || (int)$_SESSION['access'] < 9) {
@@ -49,7 +52,7 @@ include_once(__DIR__ . '/../../Database.php');
 include_once(__DIR__ . '/../../Automation.php');
 
 // ============================================================
-// INPUT
+// Input
 // ============================================================
 $id = (int)($_POST['id'] ?? 0);
 
@@ -59,7 +62,7 @@ if ($id <= 0) {
 }
 
 // ============================================================
-// BUILDING DATA f1-f40 + f99
+// Construim SET-ul dinamic pentru f1-f40 și f99
 // ============================================================
 $sets = [];
 
@@ -67,7 +70,7 @@ for ($i = 1; $i <= 40; $i++) {
     $level = (int)($_POST["id{$i}level"] ?? 0);
     $gid   = (int)($_POST["id{$i}gid"] ?? 0);
 
-    // Travian building level limit.
+    // limităm la valori rezonabile Travian
     $level = max(0, min(20, $level));
 
     // 50 = last supported building ID.
@@ -78,7 +81,7 @@ for ($i = 1; $i <= 40; $i++) {
 }
 
 // ============================================================
-// SPECIAL FIELD f99
+// câmpurile speciale f99
 // ============================================================
 $level99 = (int)($_POST['id99level'] ?? 0);
 $gid99   = (int)($_POST['id99gid'] ?? 0);
@@ -87,7 +90,7 @@ $gid99   = (int)($_POST['id99gid'] ?? 0);
 if ($gid99 === 40) {
     $level99 = max(0, min(100, $level99));
 } else {
-    $level99 = max(0, min(20, $level99));
+    $level99 = max(0, min(20, $level99)); // capcană, etc.
 }
 
 $gid99 = max(0, min(50, $gid99));
@@ -105,7 +108,7 @@ $database->query(
 );
 
 // ============================================================
-// RECALCULATE VILLAGE POPULATION
+// recalculăm populația după editare
 // ============================================================
 $automation = new Automation();
 
@@ -113,7 +116,7 @@ $pop = $automation->recountPop($id);
 
 // ============================================================
 // WORLD WONDER POPULATION FIX
-// recountPop() does not include f99.
+// --- FIX: recountPop original nu include f99 (WW), îl adăugăm ---
 // ============================================================
 $fdata = $database->getResourceLevel($id);
 
@@ -121,6 +124,7 @@ if ((int)$fdata['f99t'] === 40) {
     $wwLevel = (int)$fdata['f99'];
 
     if ($wwLevel > 0) {
+        // buildingPOP există în Automation
         $wwPop = $automation->buildingPOP(40, $wwLevel);
         $pop += $wwPop;
 
@@ -134,37 +138,24 @@ if ((int)$fdata['f99t'] === 40) {
 // ADMIN LOG
 // ============================================================
 $adminId = (int)$_SESSION['id'];
-$time    = time();
+$time = time();
 
-$village = $database->getVillage($id);
+// FIX: nume sat + ID formatat
+$village = $database->getVillage($id);// dacă nu e deja încărcat sus
 
 $villageName = $village['name'] ?? 'Village';
 
-$villageNameSafe = htmlspecialchars(
-    $villageName,
-    ENT_QUOTES,
-    'UTF-8'
-);
+$villageNameSafe = htmlspecialchars(    $villageName,    ENT_QUOTES,'UTF-8');
 
-$log = $database->escape(
-    "Edited buildings for village " .
-    "<a href='admin.php?p=village&did={$id}'>" .
-    $villageNameSafe .
-    "</a>"
-);
+$log = $database->escape("Edited buildings for village <a href='admin.php?p=village&did={$id}'>$villageNameSafe</a>");
 
-$database->query(
-    "INSERT INTO " . TB_PREFIX .
-    "admin_log (`id`,`user`,`log`,`time`) " .
-    "VALUES (0,'{$adminId}','{$log}',{$time})"
-);
+$database->query("INSERT INTO " . TB_PREFIX .
+    "admin_log (`id`,`user`,`log`,`time`)  VALUES (0,'{$adminId}','{$log}',{$time})");
 
 // ============================================================
 // REDIRECT
 // ============================================================
-header(
-    "Location: ../../../Admin/admin.php?p=village&did=" . $id
-);
+header("Location: ../../../Admin/admin.php?p=village&did=" . $id);
 
 exit;
 ?>

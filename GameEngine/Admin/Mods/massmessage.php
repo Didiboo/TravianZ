@@ -38,7 +38,7 @@ include_once("../../config.php");
 include_once("../../Database.php");
 
 if (!isset($_SESSION['access']) || $_SESSION['access'] < ADMIN) {
-    admin_deny('You must be signed in as an administrator to view this page. Your session may have expired â€” please return to the admin panel and sign in again.');
+    admin_deny('You must be signed in as an administrator to view this page. Your session may have expired - please return to the admin panel and sign in again.');
 }
 
 // Issue #139: this Mod is POSTed to directly, so it must verify the CSRF token

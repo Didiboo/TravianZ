@@ -107,7 +107,8 @@ function admin_validated_page(string $raw): string
         'multiacc',
         'pushprot',
         'blockReg',
-        'heatmap', 'addserver',
+        'heatmap',
+        'addserver',
         'goldShop',
         'questEditor',
     ];

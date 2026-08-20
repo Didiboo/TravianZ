@@ -39,6 +39,8 @@ if (!isset($_SESSION['access']) || (int)$_SESSION['access'] < 9) {
     die(ACCESS_DENIED_ADMIN);
 }
 
+// Acest mod primeste POST direct, deci isi verifica singur tokenul CSRF
+// (nu trece prin csrf_verify()-ul central din admin.php). Vezi issue #139.
 require_once(__DIR__ . '/../csrf.php');
 csrf_verify();
 

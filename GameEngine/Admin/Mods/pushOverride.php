@@ -30,7 +30,7 @@ if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
 require_once(__DIR__ . '/../csrf.php');
 if ($_SESSION['access'] < MULTIHUNTER) {
     admin_deny('You must be signed in as an administrator or multihunter to do this. '
-        . 'Your session may have expired â€” please return to the admin panel and sign in again.');
+        . 'Your session may have expired - please return to the admin panel and sign in again.');
 }
 
 // This Mod is POSTed to directly, so verify the CSRF token itself.
@@ -58,7 +58,7 @@ $check = mysqli_query($GLOBALS['link'],
     "SELECT access, username FROM " . TB_PREFIX . "users WHERE id = " . $admid);
 $acc = $check ? mysqli_fetch_assoc($check) : null;
 if (!$acc || (int)$acc['access'] < MULTIHUNTER) {
-    admin_deny('Your session may have expired â€” please sign in again.');
+    admin_deny('Your session may have expired - please sign in again.');
 }
 
 if ($uid > 3) {

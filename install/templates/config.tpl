@@ -23,8 +23,6 @@ if(isset($_GET['c']) && $_GET['c'] == 1) {
 echo "<div class=\"headline\"><span class=\"f10 c5\">Error creating constant.php check cmod.</span></div><br>";
 }
 
-//@session_start();
-
 $envPath = dirname(__DIR__, 2). '/.env';
 $envDefaults = [];
 if(file_exists($envPath)) {

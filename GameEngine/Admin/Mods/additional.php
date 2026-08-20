@@ -83,7 +83,7 @@ $database->query("
     WHERE id = $id
 ");
 
-// --- LOG GOLD dacÄƒ s-a modificat ---
+// --- LOG GOLD dacă s-a modificat ---
 if($diffGold!== 0){
     $vill = $database->getVillagesID($id);
     $wid = $vill[0]?? 0;
@@ -91,7 +91,7 @@ if($diffGold!== 0){
     $details = 'Admin adjustment by '.($session->username?? 'Admin');
     $now = time();
 
-    // foloseÈ™te mysqli_real_escape_string dacÄƒ $database->query nu face escape automat
+    // folosește mysqli_real_escape_string dacă $database->query nu face escape automat
     $action_esc = mysqli_real_escape_string($GLOBALS["link"], $action);
     $details_esc = mysqli_real_escape_string($GLOBALS["link"], $details);
 
@@ -109,7 +109,7 @@ $playerName = $database->getUserField($id, 'username', 0)?: 'Unknown';
 $protectDays = (int)($_POST['protect']?? 0);
 
 $logParts = [];
-$logParts[] = "Gold: $oldGold â†’ $newGold". ($diffGold!=0? " ($diffGold)" : "");
+$logParts[] = "Gold: $oldGold → $newGold". ($diffGold!=0? " ($diffGold)" : "");
 $logParts[] = "VacMode: $vac_mode";
 $logParts[] = "Access: $access";
 $logParts[] = "Protect: {$protectDays}d";
