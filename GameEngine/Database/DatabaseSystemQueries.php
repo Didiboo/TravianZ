@@ -55,7 +55,7 @@ trait DatabaseSystemQueries {
 
             // load the DB structure SQL file
             $str = file_get_contents($autoprefix."var/db/struct.sql");
-            $str = preg_replace("'%PREFIX%'", TB_PREFIX, $str);
+            $str = str_replace('%PREFIX%', TB_PREFIX, $str);
             $result = $this->dblink->multi_query($str);
 
             // fetch results of the multi-query in order to allow subsequent query() and multi_query() calls to work
@@ -367,7 +367,9 @@ trait DatabaseSystemQueries {
 		list($message) = $this->escape_input($message);
 		global $autoprefix;
 		
-		$myFile = $autoprefix."Templates/text.tpl";
+		$instanceId = defined('INSTANCE_ID') ? INSTANCE_ID : 's1';
+		$instancePath = dirname(__DIR__, 2) . '/instances/' . $instanceId;
+		$myFile = $instancePath . '/text.tpl';
 		$fh = fopen($myFile, 'w');
 		$text = file_get_contents($autoprefix."Templates/text_format.tpl");
 		$text = preg_replace("'%TEKST%'", $message, $text);
