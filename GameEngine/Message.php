@@ -201,6 +201,9 @@ class Message
         if (isset($post['start_x'])) {
             $this->unarchiveNotice($post);
         }
+        if (isset($post['readall'])) {
+            $this->readAllNotices();
+        }
     }
 
     public function quoteMessage($id)
@@ -411,6 +414,20 @@ class Message
         global $database, $session;
         $unarchIDs = $this->collectSelectedIds($post);
         $database->unarchiveNotice($unarchIDs, (int) $session->uid);
+        header("Location: berichte.php");
+        exit;
+    }
+
+    /**
+     * Buton "Read All" (cerut de Catalin): marcheaza toate rapoartele
+     * necitite ale userului ca citite dintr-o singura actiune, indiferent
+     * de tab/filtru curent - la fel ca removeNotice/archiveNotice/
+     * unarchiveNotice de mai sus (POST + redirect la lista de baza).
+     */
+    private function readAllNotices()
+    {
+        global $database, $session;
+        $database->noticeViewedAll((int) $session->uid);
         header("Location: berichte.php");
         exit;
     }
@@ -753,6 +770,14 @@ class Message
 
 	public function sendWelcome($uid, $username){
 		global $database;
+		/*
+		 * FIX: $bid40 / $bid15 sunt deja incarcate global de Session.php
+		 * (include_once("Data/buidata.php")), care ruleaza pe orice pagina.
+		 * Fara "global" aici, require_once() de mai jos e no-op (fisierul
+		 * e deja inclus o data in script), iar $bid40/$bid15 raman nesetate
+		 * local -> blocul de calcul WW e sarit -> wwBuildSeconds = 0.
+		 */
+		global $bid40, $bid15;
 
     $welcomemsg = file_get_contents("GameEngine/Admin/welcome.tpl");
 
