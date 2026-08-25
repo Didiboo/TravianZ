@@ -259,7 +259,7 @@ class Battle {
      * cast (int) + clamp de interval. Pentru valori VALIDE rezultatul
      * este identic cu originalul (verificat cu harness-ul de
      * echivalenta); clamp-urile schimba comportamentul doar pe input
-     * invalid — fiecare e semnalat individual mai jos.
+     * invalid â fiecare e semnalat individual mai jos.
      ******************************************************************/
     $attTribe = (int)$post['a1_v'];   // validat 1..9 in procSim()
 
@@ -421,7 +421,7 @@ class Battle {
 
         // The building TYPE is stored in the 'f<n>t' columns of fdata (e.g. the
         // Brewery on slot 20 is 'f20t' == 35); the matching level lives in 'f<n>'.
-        // Match on the 't' SUFFIX, not the first character — a previous rewrite
+        // Match on the 't' SUFFIX, not the first character â a previous rewrite
         // tested $key[0] === 't', which never matched 'f<n>t' and made this
         // return 0 for every building (issue #294: Brewery bonus never applied).
         // Mirrors Building::getTypeLevel()/Automation::getTypeLevel().
@@ -482,14 +482,14 @@ class Battle {
 	
 	/*****************************************
 	Function to process Calculate Battle
-	(Phase 2: orchestrator — fiecare sectiune
+	(Phase 2: orchestrator â fiecare sectiune
 	a devenit un helper privat, mai jos)
 
 	$previousHeroOutcome: result of an earlier
 	pass over the SAME battle (rams changed the
 	wall level, so it is replayed). When set,
 	the hero damage is not applied a second
-	time — the first verdict is reused instead
+	time â the first verdict is reused instead
 	(issue #372).
 	*****************************************/
 
@@ -552,7 +552,7 @@ class Battle {
     }
 
     /******************************************************************
-     * DEFENDER FORCES (BASE + REINFORCEMENTS) — citeste DB, nu scrie
+     * DEFENDER FORCES (BASE + REINFORCEMENTS) â citeste DB, nu scrie
      ******************************************************************/
     $defForces = $this->computeDefenderForces(
         $Defender, $def_ab, $type,
@@ -636,7 +636,7 @@ class Battle {
     $Mfactor    = $this->computeMfactor($involve, $type);
 
     /******************************************************************
-     * LOSSES (tip 1/3/4 — izoleaza singurul rand() din fisier)
+     * LOSSES (tip 1/3/4 â izoleaza singurul rand() din fisier)
      ******************************************************************/
     $losses = $this->computeLossRatios(
         $type, $winner, $att_tribe, $detected, $Attacker,
@@ -701,43 +701,55 @@ class Battle {
     );
 
     /******************************************************************
-     * HERO DAMAGE — carry over on a recalculation
+     * HERO DAMAGE â per-hero carry over on a recalculation
      *
-     * applyHeroBattleDamage() WRITES to the hero table, so it must run
-     * exactly once per battle. When rams change the wall level, the caller
-     * replays the whole battle (AutomationBattleResolution::applyRamDamage()).
-     * On that second pass the "WHERE dead = 0" lookup no longer finds a hero
-     * who just died on the first pass: applyHeroBattleDamage() returns null
-     * and the hero casualty silently disappears from the result. The hero was
-     * then dead in the hero table but reported alive, t11 was never
-     * decremented and returnunitsComplete() put him back in the village
-     * (issue #372). Defender heroes were also charged their health damage
-     * twice.
+     * applyHeroBattleDamage() WRITES to the hero table. When rams change
+     * the wall level, the caller replays the whole battle
+     * (AutomationBattleResolution::applyRamDamage()), passing the FIRST
+     * pass's result back in as $previousHeroOutcome.
      *
-     * The caller passes the first pass result in $previousHeroOutcome so the
-     * verdict is carried over instead of being recomputed.
+     * issue #372 (original bug, both halves already fixed once here):
+     * (a) on a naive second pass the "WHERE dead = 0" lookup no longer finds
+     * a hero who just died on the first pass, so his casualty silently
+     * disappeared (dead in the hero table, reported alive, t11 never
+     * decremented, returnunitsComplete() put him back in the village);
+     * (b) a hero who survived the first pass got his health damage
+     * subtracted a SECOND time on the naive second pass.
+     *
+     * BUG GASIT IN AUDIT (fixed here): the previous fix for (a)/(b) skipped
+     * the ENTIRE hero-damage block whenever a recalculation happened,
+     * freezing the hero's fate as of the FIRST pass. But the first pass
+     * runs with the OLD (pre-ram) wall level, which still counts its full
+     * defense bonus - so a defender hero judged "alive" on that pass could
+     * in reality belong to an army that the recalculated, post-ram-damage
+     * pass now shows as 100% wiped out (applyOwnDefenceCasualties()
+     * downstream uses the RECALCULATED result[2] for the actual troop
+     * kills). The hero's own verdict never got re-checked against that same
+     * recalculated ratio, so he could survive on record despite his whole
+     * army dying with the wall.
+     *
+     * Fix: track each hero's PREVIOUS verdict individually (1 = already
+     * dead -> short-circuit, exactly as before; 0 = survived pass 1 -> must
+     * be re-run against the current ratio; null = first pass, unchanged)
+     * instead of skipping the block wholesale. See applyHeroBattleDamage()
+     * for how each case is handled without double-charging health.
      ******************************************************************/
-    $heroDamageAlreadyApplied = ($previousHeroOutcome !== null);
+    $prevAtkVerdict = ($previousHeroOutcome !== null && array_key_exists('deadheroatt', $previousHeroOutcome))
+        ? $previousHeroOutcome['deadheroatt'] : null;
 
-    if ($heroDamageAlreadyApplied) {
+    $prevDefVerdict = ($previousHeroOutcome !== null && array_key_exists('deadherodef', $previousHeroOutcome))
+        ? $previousHeroOutcome['deadherodef'] : null;
 
-        if (isset($previousHeroOutcome['casualties_attacker'][11])) {
-            $result['casualties_attacker'][11] = $previousHeroOutcome['casualties_attacker'][11];
-        }
-
-        if (isset($previousHeroOutcome['deadherodef'])) {
-            $result['deadherodef'] = $previousHeroOutcome['deadherodef'];
-        }
-
-        if (isset($previousHeroOutcome['deadheroref'])) {
-            $result['deadheroref'] = $previousHeroOutcome['deadheroref'];
-        }
+    if ($previousHeroOutcome !== null && isset($previousHeroOutcome['casualties_attacker'][11])) {
+        // A first-pass death must never be lost, even before the attacker
+        // block below gets a chance to re-derive it.
+        $result['casualties_attacker'][11] = $previousHeroOutcome['casualties_attacker'][11];
     }
 
     /******************************************************************
      * HERO DAMAGE (ATTACKER)
      ******************************************************************/
-    if (!$heroDamageAlreadyApplied && !empty($units['Att_unit']['hero']) && !empty($atkhero['heroid'])) {
+    if ($prevAtkVerdict !== 1 && !empty($units['Att_unit']['hero']) && !empty($atkhero['heroid'])) {
 
         /**
          * A fost armata NIMICITA?
@@ -773,30 +785,42 @@ class Battle {
             // T4 hero port (Phase 5): doar eroul ATACATOR beneficiaza de
             // reducerea de daune din armuri (comportament original pastrat)
             $atkhero['uid'] ?? 0,
-            $armyWipedOut
+            $armyWipedOut,
+            $prevAtkVerdict
         );
+
+        if ($dead !== null) {
+            $result['deadheroatt'] = $dead;
+        }
 
         if ($dead === 1) {
             $result['casualties_attacker'][11] = 1;
         }
+    } elseif ($prevAtkVerdict !== null) {
+        $result['deadheroatt'] = $prevAtkVerdict;
     }
 
     /******************************************************************
      * HERO DAMAGE (DEFENDER)
      ******************************************************************/
-    if (!$heroDamageAlreadyApplied && !empty($units['Def_unit']['hero']) && !empty($defenderhero['heroid'])) {
+    if ($prevDefVerdict !== 1 && !empty($units['Def_unit']['hero']) && !empty($defenderhero['heroid'])) {
 
-        $dead = $this->applyHeroBattleDamage($defenderhero['heroid'], $result[2]);
+        $dead = $this->applyHeroBattleDamage($defenderhero['heroid'], $result[2], null, false, $prevDefVerdict);
 
         if ($dead !== null) {
             $result['deadherodef'] = $dead;
         }
+    } elseif ($prevDefVerdict !== null) {
+        $result['deadherodef'] = $prevDefVerdict;
     }
 
     /******************************************************************
      * HERO DAMAGE (DEFENDER + REINFORCEMENTS)
      ******************************************************************/
-    if (!$heroDamageAlreadyApplied && !empty($DefendersAll)) {
+    if (!empty($DefendersAll)) {
+
+        $prevRefVerdicts = ($previousHeroOutcome !== null && isset($previousHeroOutcome['deadheroref']))
+            ? $previousHeroOutcome['deadheroref'] : [];
 
         $battleHeroesCache = [];
         $villageOwnerCache = [];
@@ -804,6 +828,13 @@ class Battle {
         foreach ($DefendersAll as $defenders) {
 
             if (empty($defenders['hero'])) {
+                continue;
+            }
+
+            $prevRefVerdict = isset($prevRefVerdicts[$defenders['id']]) ? $prevRefVerdicts[$defenders['id']] : null;
+
+            if ($prevRefVerdict === 1) {
+                $result['deadheroref'][$defenders['id']] = 1;
                 continue;
             }
 
@@ -825,12 +856,14 @@ class Battle {
                 continue;
             }
 
-            $dead = $this->applyHeroBattleDamage($heroarraydefender['heroid'], $result[2]);
+            $dead = $this->applyHeroBattleDamage($heroarraydefender['heroid'], $result[2], null, false, $prevRefVerdict);
 
             if ($dead !== null) {
                 $result['deadheroref'][$defenders['id']] = $dead;
             }
         }
+    } elseif ($previousHeroOutcome !== null && isset($previousHeroOutcome['deadheroref'])) {
+        $result['deadheroref'] = $previousHeroOutcome['deadheroref'];
     }
 
     /******************************************************************
@@ -1076,7 +1109,7 @@ class Battle {
         }
 
         // NOTA: artefactul ofensiv al atacatorului se aplica DOAR pe ramura
-        // de spionaj (tip 1), nu si la atacurile normale — comportament
+        // de spionaj (tip 1), nu si la atacurile normale â comportament
         // original pastrat 1:1; de verificat separat daca e intentionat
         $ap *= $attacker_artefact;
 
@@ -1342,7 +1375,7 @@ class Battle {
 	/*****************************************
 	Phase 2 helper: bonusul de atac Brewery
 	(citeste DB; extras ca sa ramana
-	computeTotalPoints() pur — vezi tabelul
+	computeTotalPoints() pur â vezi tabelul
 	de mapare din livrare)
 	*****************************************/
 
@@ -1354,8 +1387,8 @@ class Battle {
 
     // Brewery (35) Mead-Festival attack bonus: Teuton-only, capital-only but
     // empire-wide, and active ONLY while a festival is running (72h). It must be
-    // read from the attacker's CAPITAL — $AttackerWref is the launching village,
-    // which usually has no Brewery — and gated on the festival being active,
+    // read from the attacker's CAPITAL â $AttackerWref is the launching village,
+    // which usually has no Brewery â and gated on the festival being active,
     // otherwise the bonus is permanent and never reacts to the festival being
     // started/expired (issue #294). This mirrors the catapult-randomization gate
     // in Units.php and the chief-penalty gate in Automation.php. The simulator
@@ -1454,7 +1487,7 @@ class Battle {
 
 	/*****************************************
 	Phase 2 helper: ratele de pierderi pentru
-	tipurile 1/3/4 — izoleaza singurul rand()
+	tipurile 1/3/4 â izoleaza singurul rand()
 	din fisier (hero_fealthy); pentru alte
 	tipuri nu seteaza cheile 1/2, exact ca
 	originalul
@@ -1493,7 +1526,7 @@ class Battle {
 
         // NOTA: $result[1] e o fractie 0..1, deci "/ 100" face scaderea
         // aproape mereu 0 (berbecii/catapultele trag cu efectivul de
-        // dinainte de pierderi) — comportament original pastrat 1:1
+        // dinainte de pierderi) â comportament original pastrat 1:1
         $ram  -= round($ram * $result[1] / 100);
         $catp -= round($catp * $result[1] / 100);
 
@@ -1531,7 +1564,7 @@ class Battle {
 
         // NOTA: cast-ul (int) trunchiaza fractia la 0, deci $aviables ==
         // $kings pentru orice pierdere partiala (doar pierderea totala,
-        // result[1] == 1, ii scade) — comportament original pastrat 1:1
+        // result[1] == 1, ii scade) â comportament original pastrat 1:1
         $aviables = $kings - round($kings * (int)$result[1]);
 
         if ($aviables > 0) {
@@ -1547,7 +1580,7 @@ class Battle {
             $result['hero_fealthy'] = $fealthy;
         }
 
-        // NOTA: acelasi "/ 100" pe fractie ca la tipul 4 — pastrat 1:1
+        // NOTA: acelasi "/ 100" pe fractie ca la tipul 4 â pastrat 1:1
         $ram -= ($winner)
             ? round($ram * $result[1] / 100)
             : round($ram * $result[2] / 100);
@@ -1685,20 +1718,35 @@ class Battle {
 
 	/*****************************************
 	Phase 2 helper: daunele de sanatate ale
-	unui erou dupa lupta — unifica cele 3
+	unui erou dupa lupta â unifica cele 3
 	blocuri DB duplicate (atacator, aparator,
 	intariri); SINGURUL helper care scrie in
 	DB. Intoarce: null = eroul nu exista /
 	era deja mort (nicio scriere), 1 = a
 	murit acum, 0 = a supravietuit (health
 	scazut cu daunele)
+
+	$previousVerdict (recalculare dupa daune de berbec, issue #372 +
+	BUG GASIT in audit): 1 = eroul era deja mort pe primul pass -> iesim
+	imediat, fara query, fara a doua scriere (asa se evita dubla scadere
+	de health din bug-ul original #372). 0 = eroul supravietuise primul
+	pass (si isi luase deja daunele acelui pass) - reverificam impotriva
+	raportului RECALCULAT (zid daramat de berbec = aparare mai mica =
+	$lossRatio real, mai mare) si il omoram daca acum trece pragul, dar
+	NU ii mai scadem health inca o data daca tot supravietuieste (health-ul
+	lui reflecta deja daunele din primul pass). null = pass normal / prim
+	pass, comportament neschimbat.
 	*****************************************/
 
-	private function applyHeroBattleDamage($hero_id, $lossRatio, $reduceForUid = null, $armyWipedOut = false) {
+	private function applyHeroBattleDamage($hero_id, $lossRatio, $reduceForUid = null, $armyWipedOut = false, $previousVerdict = null) {
 
     global $database;
 
     $hero_id = (int)$hero_id;
+
+    if ($previousVerdict === 1) {
+        return 1;
+    }
 
     $_result = mysqli_query(
         $database->dblink,
@@ -1730,7 +1778,7 @@ class Battle {
      *
      * BUG REPARAT: armurile scad daunele cu o valoare fixa
      * (HeroBattleBonus::reduceDamage), asa ca la o infrangere totala eroul
-     * putea coborî sub prag si supravietuia - se intorcea singur in sat, desi
+     * putea coborÃ® sub prag si supravietuia - se intorcea singur in sat, desi
      * toata armata murise.
      *
      * Reducerea din armuri ramane valabila pentru lupte partiale, dar cand
@@ -1776,6 +1824,17 @@ class Battle {
         }
 
         return 1;
+    }
+
+    /**
+     * BUG GASIT in audit: eroul supravietuise deja primul pass (pre-berbec)
+     * si isi luase daunele ACELUIA. Raportul recalculat aici confirma ca tot
+     * supravietuieste, deci nu se mai scrie nimic - altfel s-ar scadea health
+     * de doua ori pentru aceeasi lupta (exact dubla-scadere din issue #372
+     * pe care fix-ul original o repara pentru alte ramuri).
+     */
+    if ($previousVerdict === 0) {
+        return 0;
     }
 
     mysqli_query(
