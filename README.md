@@ -235,9 +235,21 @@ Completed
 * Medal system.
 * Logging system.
 
+⸻
+
 Still Planned
 
-Nothing for the moment !
+* Multi-instance: Final version, fully fonctionnal : Testing in progress
+  * Automatic instance management (local or web) :
+    - Local : localhost/s*/
+    - Web : s*.mydomain.com (to preserve original addressing)
+  * New server via ACP
+* New peace mode: Server type 'n' (Attacks disabled at night)
+* Restore index.php to its best version while keeping the changes
+* Revise the installation script for improved readability
+* Create date and time spawn definitions for Natars (Essential for 'n' mode)
+* Include bot management from addusers in the ACP to increase server health.
+* Include some interesting features. (Auto-building, and others...)
 
 ⸻
 
