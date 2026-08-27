@@ -1,21 +1,5 @@
 ﻿<?php
 
-// ============================================================
-// TRAVIANZ MI INSTANCE / SESSION BOOTSTRAP
-// ============================================================
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
-
-include_once(__DIR__ . '/../../config.php');
-
-if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
-    require_once(__DIR__ . '/../../Lang/loader.php');
-    if (defined('LANG') && function_exists('tz_load_language')) {
-        tz_load_language(LANG);
-    }
-}
 #################################################################################
 ##              -= YOU MAY NOT REMOVE OR CHANGE THIS NOTICE =-                 ##
 ## --------------------------------------------------------------------------- ##
@@ -25,6 +9,20 @@ if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
 ##  License:       TravianZ Project                                           ##
 ##  Copyright:     TravianZ (c) 2010-2026. All rights reserved.               ##
 #################################################################################
+
+// Multi-instance bootstrap: resolve the instance and bind the correct session/config.
+// config.php must remain at the beginning, as it initializes the transition to the resolver.
+// Load the generated instance configuration and language before using the admin session.
+//$autoprefix is ​​no longer needed if we normalize deterministic paths.
+
+include_once(__DIR__ . '/../../config.php');
+
+if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
+    require_once(__DIR__ . '/../../Lang/loader.php');
+    if (defined('LANG') && function_exists('tz_load_language')) {
+        tz_load_language(LANG);
+    }
+}
 
 // #299 style: load CSRF helpers + admin_deny() before the access check.
 require_once(__DIR__ . '/../csrf.php');
@@ -36,16 +34,8 @@ if ($_SESSION['access'] < MULTIHUNTER) {
 // This Mod is POSTed to directly, so verify the CSRF token itself.
 csrf_verify();
 
-include_once("../../config.php");
-
-// autoloader (find it walking up, like the other Mods)
-$autoprefix = '';
-for ($i = 0; $i < 5; $i++) {
-    $autoprefix = str_repeat('../', $i);
-    if (file_exists($autoprefix . 'autoloader.php')) break;
-}
-include_once($autoprefix . "GameEngine/Database.php");
-include_once($autoprefix . "GameEngine/PushProtection.php");
+include_once(__DIR__ . '/../../Database.php');
+include_once(__DIR__ . '/../../PushProtection.php');
 
 $admid = (int)($_SESSION['id'] ?? 0);
 $uid   = (int)($_POST['uid'] ?? 0);

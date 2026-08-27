@@ -13,24 +13,22 @@
 // Issue #139: this Mod is POSTed to directly, so it must verify the CSRF token
 // itself (it does not go through admin.php's central csrf_verify()).
 // Multi-instance bootstrap: resolve the instance and bind the correct session/config.
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
-
+// config.php must remain at the beginning, as it initializes the transition to the resolver.
 // Load the generated instance configuration and language before using the admin session.
+//$autoprefix is ​​no longer needed if we normalize deterministic paths.
+
 include_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/../../Lang/loader.php');
 tz_load_language(LANG);
 
 if (!isset($_SESSION['access']) || (int)$_SESSION['access'] < 9) {
-    die(ACCESS_DENIED_ADMIN);
+    admin_deny('You must be signed in as an administrator to view this page. Your session may have expired — please return to the admin panel and sign in again.');
 }
 
 require_once(__DIR__ . '/../csrf.php');
 csrf_verify();
 
-include_once("../../Database.php");
-include_once("../../config.php");
+include_once(__DIR__ . '/../../Database.php');
 $id = (int) $_POST['id'];
 
 require_once(__DIR__ . '/config_template.php');

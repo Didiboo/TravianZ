@@ -166,7 +166,8 @@ References: User ID/Message ID, Mode
 	    $mode_updated = false;
 	    // update $id if we should show Support messages for Admins and we are an admin
 	    if (
-	       $session->access == ADMIN
+           isset($session)
+	       && $session->access == ADMIN
 	       && ADMIN_RECEIVE_SUPPORT_MESSAGES
 	       && in_array($mode, [1,2,6,9,10,11])
 	    ) {
@@ -176,7 +177,8 @@ References: User ID/Message ID, Mode
 
         // update $id if we should show Multihunter messages for the current player
         if (
-            $session->access == MULTIHUNTER
+            isset($session)
+            && $session->access == MULTIHUNTER
             && in_array($mode, [1,2,6,9,10,11])
         ) {
             $id = $id . ', 5';

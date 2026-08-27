@@ -9,13 +9,10 @@
 ##                                                                             ##
 #################################################################################
 
-// ============================================================
-// TRAVIANZ MI INSTANCE / SESSION BOOTSTRAP
-// ============================================================
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
+// Multi-instance bootstrap: resolve the instance and bind the correct session/config.
+// config.php must remain at the beginning, as it initializes the transition to the resolver.
+// Load the generated instance configuration and language before using the admin session.
+//$autoprefix is ​​no longer needed if we normalize deterministic paths.
 
 include_once(__DIR__ . '/../../config.php');
 
@@ -32,22 +29,9 @@ if($_SESSION['access'] < 9) admin_deny('You must be signed in as an administrato
 
 // Issue #139: this Mod is POSTed to directly, so it must verify the CSRF token
 // itself (it does not go through admin.php's central csrf_verify()).
-require_once(__DIR__ . '/../csrf.php');
 csrf_verify();
 
-include_once("../../config.php");
-
-// go max 5 levels up - we don't have folders that go deeper than that
-$autoprefix = '';
-for ($i = 0; $i < 5; $i++) {
-    $autoprefix = str_repeat('../', $i);
-    if (file_exists($autoprefix.'autoloader.php')) {
-        // we have our path, let's leave
-        break;
-    }
-}
-
-include_once($autoprefix."GameEngine/Database.php");
+include_once(__DIR__ . '/../../Database.php');
 
 $id = (int) $_POST['id'];
 $admid = (int) $_POST['admid'];

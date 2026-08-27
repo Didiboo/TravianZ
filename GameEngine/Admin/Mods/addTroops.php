@@ -12,13 +12,9 @@
 ##                                                                             ##
 #################################################################################
 
-// ============================================================
-// TRAVIANZ MI INSTANCE / SESSION BOOTSTRAP
-// ============================================================
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
+// Multi-instance bootstrap: resolve the instance and bind the correct session/config.
+// config.php must remain at the beginning, as it initializes the transition to the resolver.
+// Load the generated instance configuration and language before using the admin session.
 
 include_once(__DIR__ . '/../../config.php');
 
@@ -38,12 +34,11 @@ if (empty($_SESSION['access']) || $_SESSION['access'] < 9) {
 
 // Issue #139: this Mod is POSTed to directly, so it must verify the CSRF token
 // itself (it does not go through admin.php's central csrf_verify()).
-require_once(__DIR__ . '/../csrf.php');
 csrf_verify();
 
-include_once __DIR__ . "/../../Database.php";
-include_once __DIR__ . "/../../Technology.php";
-include_once __DIR__ . "/../../Data/unitdata.php";
+include_once(__DIR__ . '/../../Database.php');
+include_once(__DIR__ . '/../../Technology.php');
+include_once(__DIR__ . '/../../Data/unitdata.php');
 
 /* ---------------------------------------------------------------------------
  * Input & validare
