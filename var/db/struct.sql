@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS `%PREFIX%allimedal` (
  `categorie` int(11) NULL,
  `plaats` int(11) NULL,
  `week` int(11) NULL,
- `points` bigint(255) NULL,
+ `points` varchar(255) NULL,
  `img` varchar(255) NULL,
  `del` tinyint(1) NULL DEFAULT '0',
  PRIMARY KEY (`id`),
