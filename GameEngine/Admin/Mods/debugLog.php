@@ -1,21 +1,5 @@
 ﻿<?php
 
-// ============================================================
-// TRAVIANZ MI INSTANCE / SESSION BOOTSTRAP
-// ============================================================
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
-
-include_once(__DIR__ . '/../../config.php');
-
-if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
-    require_once(__DIR__ . '/../../Lang/loader.php');
-    if (defined('LANG') && function_exists('tz_load_language')) {
-        tz_load_language(LANG);
-    }
-}
 #################################################################################
 ##              -= YOU MAY NOT REMOVE OR CHANGE THIS NOTICE =-                 ##
 ## --------------------------------------------------------------------------- ##
@@ -30,6 +14,21 @@ if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
 ##    do=clear    -> empty the log file(s)                                     ##
 ##    do=download -> stream the log file as a download                         ##
 #################################################################################
+
+// Multi-instance bootstrap: resolve the instance and bind the correct session/config.
+// config.php must remain at the beginning, as it initializes the transition to the resolver.
+// Load the generated instance configuration and language before using the admin session.
+//$autoprefix is ​​no longer needed if we normalize deterministic paths.
+
+include_once(__DIR__ . '/../../config.php');
+
+if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
+    require_once(__DIR__ . '/../../Lang/loader.php');
+    if (defined('LANG') && function_exists('tz_load_language')) {
+        tz_load_language(LANG);
+    }
+}
+
 if(($_SESSION['access'] ?? 0) < 9) die("Access denied: You are not Admin!");
 
 // Issue #139: this Mod is POSTed to directly, so it must verify the CSRF token
@@ -41,17 +40,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     csrf_verify();
 }
 
-include_once("../../Database.php");
+include_once(__DIR__ . '/../../Database.php');
 
-// Resolve project root (max 5 levels up), like the rest of the codebase.
-$autoprefix = '';
-for ($i = 0; $i < 5; $i++) {
-    $autoprefix = str_repeat('../', $i);
-    if (file_exists($autoprefix . 'autoloader.php')) {
-        break;
-    }
-}
-$logFile = $autoprefix . 'var/log/debug-players.log';
+$logFile = __DIR__ . '/var/log/debug-players.log';
 
 $uid = (int)($_SESSION['id_user'] ?? 0);
 $do  = $_REQUEST['do'] ?? '';

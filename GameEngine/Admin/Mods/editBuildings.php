@@ -1,23 +1,5 @@
 ﻿<?php
 
-// ============================================================
-// TRAVIANZ MI INSTANCE / SESSION BOOTSTRAP
-// ============================================================
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
-
-include_once(__DIR__ . '/../../config.php');
-
-if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
-    require_once(__DIR__ . '/../../Lang/loader.php');
-
-    if (defined('LANG') && function_exists('tz_load_language')) {
-        tz_load_language(LANG);
-    }
-}
-
 #################################################################################
 ##              -= YOU MAY NOT REMOVE OR CHANGE THIS NOTICE =-                 ##
 ## --------------------------------------------------------------------------- ##
@@ -30,6 +12,21 @@ if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
 ##                                                                             ##
 #################################################################################
 
+// Multi-instance bootstrap: resolve the instance and bind the correct session/config.
+// config.php must remain at the beginning, as it initializes the transition to the resolver.
+// Load the generated instance configuration and language before using the admin session.
+//$autoprefix is ​​no longer needed if we normalize deterministic paths.
+
+include_once(__DIR__ . '/../../config.php');
+
+if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
+    require_once(__DIR__ . '/../../Lang/loader.php');
+
+    if (defined('LANG') && function_exists('tz_load_language')) {
+        tz_load_language(LANG);
+    }
+}
+
 // ============================================================
 // CSRF + ADMIN ACCESS
 // #299: load CSRF helpers + admin_deny() before the access check below
@@ -39,7 +36,7 @@ if (file_exists(__DIR__ . '/../../Lang/loader.php')) {
 require_once(__DIR__ . '/../csrf.php');
 
 if (empty($_SESSION['access']) || (int)$_SESSION['access'] < 9) {
-     die(ACCESS_DENIED_ADMIN);
+    admin_deny('You must be signed in as an administrator to view this page. Your session may have expired — please return to the admin panel and sign in again.');
 }
 
 // This file is POSTed to directly, so verify CSRF here.

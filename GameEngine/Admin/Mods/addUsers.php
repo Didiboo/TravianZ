@@ -14,23 +14,12 @@
 
 use App\Entity\User;
 
-// Multi-instance bootstrap MUST happen before any session access.
-// This direct POST endpoint must use the same instance-specific session cookie
-// as the rest of the Admin/Mods endpoints.
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
+// Multi-instance bootstrap: resolve the instance and bind the correct session/config.
+// config.php must remain at the beginning, as it initializes the transition to the resolver.
+// Load the generated instance configuration and language before using the admin session.
+//$autoprefix is ​​no longer needed if we normalize deterministic paths.
 
-// go max 5 levels up - we don't have folders that go deeper than that
-$autoprefix = '';
-for ($i = 0; $i < 5; $i++) {
-    $autoprefix = str_repeat('../', $i);
-    if (file_exists($autoprefix.'autoloader.php')) break;
-}
-
-include_once($autoprefix."GameEngine/config.php");
-include_once($autoprefix."GameEngine/Automation.php");
-include_once($autoprefix."GameEngine/Database.php");
+include_once(__DIR__ . '/../../config.php');
 
 // Admin-rank guard (defense-in-depth). Reaching any file under /Admin already
 // requires an admin session: Session.php's checkLogin() gates the whole /Admin
@@ -46,8 +35,10 @@ if (empty($_SESSION['access']) || $_SESSION['access'] < 9) {
 
 // Issue #139: this Mod is POSTed to directly, so it must verify the CSRF token
 // itself (it does not go through admin.php's central csrf_verify()).
-require_once(__DIR__ . '/../csrf.php');
 csrf_verify();
+
+include_once(__DIR__ . '/../../Automation.php');
+include_once(__DIR__ . '/../../Database.php');
 
 $wgarray = array(1=>1200,1700,2300,3100,4000,5000,6300,7800,9600,11800,14400,17600,21400,25900,31300,37900,45700,55100,66400,80000);
 

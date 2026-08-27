@@ -434,6 +434,13 @@ if ($page !== '') {
             $uid = admin_input_id($_GET, 'uid');
             if ($uid !== null) {
                 $user    = $database->getUserArray($uid, 1);
+
+                // Include rank
+                require_once(__DIR__ . '/../GameEngine/Ranking.php');
+                $ranking = new Ranking();
+                $ranking->procRankArray();
+                $user['rank'] = $ranking->getUserRank($uid);
+                
                 $subpage = ADMIN_EDIT_OFF_DEF . ' (' . e($user['username']) . ')';
             } else {
                 $subpage = ADMIN_EDIT_OFF_DEF;

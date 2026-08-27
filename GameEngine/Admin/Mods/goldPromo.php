@@ -9,13 +9,10 @@
 ##  Copyright:     TravianZ (c) 2010-2026. All rights reserved.               ##
 #################################################################################
 
-// ============================================================
-// TRAVIANZ MI INSTANCE / SESSION BOOTSTRAP
-// ============================================================
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
+// Multi-instance bootstrap: resolve the instance and bind the correct session/config.
+// config.php must remain at the beginning, as it initializes the transition to the resolver.
+// Load the generated instance configuration and language before using the admin session.
+//$autoprefix is ​​no longer needed if we normalize deterministic paths.
 
 include_once(__DIR__ . '/../../config.php');
 
@@ -34,15 +31,8 @@ if ($_SESSION['access'] < 9) {
 
 csrf_verify();
 
-include_once("../../config.php");
-
-$autoprefix = '';
-for ($i = 0; $i < 5; $i++) {
-    $autoprefix = str_repeat('../', $i);
-    if (file_exists($autoprefix . 'autoloader.php')) break;
-}
-include_once($autoprefix . "GameEngine/Database.php");
-include_once($autoprefix . "GameEngine/GoldShop.php");
+include_once(__DIR__ . '/../../Database.php');
+include_once(__DIR__ . '/../../GoldShop.php');
 
 $admid = (int)($_SESSION['id'] ?? 0);
 

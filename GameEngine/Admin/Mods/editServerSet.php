@@ -10,18 +10,17 @@
 ##                                                                             ##
 #################################################################################
 
-// Direct POST endpoint: resolve and start the instance-isolated session before any session access.
-require_once(__DIR__ . '/../../Instance/Resolver.php');
-$travianInstance = InstanceResolver::resolve(false);
-InstanceResolver::startInstanceSession($travianInstance);
+// Multi-instance bootstrap: resolve the instance and bind the correct session/config.
+// config.php must remain at the beginning, as it initializes the transition to the resolver.
+// Load the generated instance configuration and language before using the admin session.
+//$autoprefix is ​​no longer needed if we normalize deterministic paths.
 
-// Load instance configuration and language after the instance session is initialized.
 include_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/../../Lang/loader.php');
 tz_load_language(LANG);
 
 if (!isset($_SESSION['access']) || (int)$_SESSION['access'] < 9) {
-    die(ACCESS_DENIED_ADMIN);
+    admin_deny('You must be signed in as an administrator to view this page. Your session may have expired — please return to the admin panel and sign in again.');
 }
 
 // Issue #139: this Mod is POSTed to directly, so it must verify the CSRF token
@@ -29,7 +28,7 @@ if (!isset($_SESSION['access']) || (int)$_SESSION['access'] < 9) {
 require_once(__DIR__ . '/../csrf.php');
 csrf_verify();
 
-include_once("../../Database.php");
+include_once(__DIR__ . '/../../Database.php');
 $id = (int) $_POST['id'];
 
 require_once(__DIR__ . '/config_template.php');
