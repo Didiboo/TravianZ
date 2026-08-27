@@ -36,7 +36,7 @@ $areSpawned = array(
 // ======================================================
 // PRECALCULARE TIMP (evităm strtotime în loop)
 // ======================================================
-$serverStart = strtotime(START_DATE);
+$serverStart = strtotime(START_DATE . ' ' . START_TIME);
 
 // lungime array (evităm count() repetat)
 $total = count($spawnTimeArray);
@@ -78,7 +78,7 @@ if (!empty($areSpawned[$i])) {
     $interval = $spawnTimeArray[$i] * 86400;
 
     // data finală
-    echo date('d.m.Y', $serverStart + $interval);
+    echo date('d.m.Y H:i', $serverStart + $interval);
 }
 ?>
 </font></b>
