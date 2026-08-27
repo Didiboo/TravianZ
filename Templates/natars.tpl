@@ -30,7 +30,7 @@ $currentTime = time();
  * Server start timestamp
  * ---------------------------------------------------------
  */
-$startDate = strtotime(START_DATE);
+$startDate = strtotime(START_DATE . ' ' . START_TIME);
 
 /**
  * ---------------------------------------------------------

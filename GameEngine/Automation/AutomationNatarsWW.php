@@ -113,7 +113,7 @@ trait AutomationNatarsWW {
     	
     	//Check if Natars account is already created and if the time
     	//is come and we have to create Natars and spawn their artifacts
-    	if($database->areArtifactsSpawned() || strtotime(START_DATE) + (NATARS_SPAWN_TIME * 86400) > time()) return;
+    	if($database->areArtifactsSpawned() || strtotime(START_DATE . ' ' . START_TIME) + (NATARS_SPAWN_TIME * 86400) > time()) return;
     	
     	//Create the Natars account and his capital
     	$this->artifacts->createNatars();
@@ -132,7 +132,7 @@ trait AutomationNatarsWW {
     	
     	//Check if Natars account has already been created, if WW villages have already been spawned
     	//and if it's the time to spawn them or not
-    	if(!$database->areArtifactsSpawned() || $database->areWWVillagesSpawned() || strtotime(START_DATE) + (NATARS_WW_SPAWN_TIME * 86400) > time()) return;
+    	if(!$database->areArtifactsSpawned() || $database->areWWVillagesSpawned() || strtotime(START_DATE . ' ' . START_TIME) + (NATARS_WW_SPAWN_TIME * 86400) > time()) return;
     	
     	//Create WW villages
     	$this->artifacts->createWWVillages();
@@ -151,7 +151,7 @@ trait AutomationNatarsWW {
     	
     	//Check if Natars account is already spawned, if WW building plans have already been spawned
     	//and if it's the time to spawn them or not
-    	if(!$database->areArtifactsSpawned() || $database->areArtifactsSpawned(true) || strtotime(START_DATE) + (NATARS_WW_BUILDING_PLAN_SPAWN_TIME * 86400) > time()) return;
+    	if(!$database->areArtifactsSpawned() || $database->areArtifactsSpawned(true) || strtotime(START_DATE . ' ' . START_TIME) + (NATARS_WW_BUILDING_PLAN_SPAWN_TIME * 86400) > time()) return;
     	
     	//Create WW building plans
     	$this->artifacts->createWWBuildingPlans();
