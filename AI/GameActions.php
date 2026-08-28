@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/Debug.php';
 /**
  * Drives TravianZ through its normal HTTP endpoints.
  */
@@ -20,9 +21,7 @@ class TravianAIGame
 
     public function debug(string $message): void
     {
-        $file = $this->cookieDir . DIRECTORY_SEPARATOR . 'debug.log';
-        $line = '[' . date('Y-m-d H:i:s') . '] [AI] ' . $message . PHP_EOL;
-        @file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
+        travianz_ai_debug($message);
     }
 
     public function login(string $user, string $password): bool

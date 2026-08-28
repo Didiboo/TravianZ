@@ -15,26 +15,7 @@ require_once __DIR__ . '/Db.php';
 require_once __DIR__ . '/GameActions.php';
 require_once __DIR__ . '/RaidLogic.php';
 require_once __DIR__ . '/VillageLogic.php';
-
-/**
- * Write an AI diagnostic line to the instance runtime log.
- */
-function travianz_ai_debug(string $message): void
-{
-    $runtime = defined('INSTANCE_RUNTIME_PATH')
-        ? INSTANCE_RUNTIME_PATH . DIRECTORY_SEPARATOR . 'ai'
-        : sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'travianz-ai';
-
-    if (!is_dir($runtime)) {
-        @mkdir($runtime, 0777, true);
-    }
-
-    $file = $runtime . DIRECTORY_SEPARATOR . 'debug.log';
-
-    $line = '[' . date('Y-m-d H:i:s') . '] [AI] ' . $message . PHP_EOL;
-
-    @file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
-}
+require_once __DIR__ . '/Debug.php';
 
 function travianz_run_ai(): void
 {
