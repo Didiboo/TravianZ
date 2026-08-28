@@ -176,6 +176,7 @@ if (!flock($runLockHandle, LOCK_EX | LOCK_NB)) {
 //    Automation.php through the global scope.
 // -----------------------------------------------------------------------------
 include_once($autoprefix . 'GameEngine/Database.php');
+require_once __DIR__ . '/AI/Scheduler.php';
 
 if (!isset($database) || !$database) {
     if ($isCli) { fwrite(STDERR, "cron: conexiunea la baza de date a esuat\n"); }
@@ -265,6 +266,11 @@ $ticks     = 0;
 // cycle.
 @file_put_contents($cronMarkerPath, (string) time(), LOCK_EX);
 include_once($autoprefix . 'GameEngine/Automation.php');
+try {
+    travianz_run_ai();
+} catch (Throwable $e) {
+    if ($isCli) { fwrite(STDERR, "cron: AI error: " . $e->getMessage() . "\n"); }
+}
 $ticks++;
 
 // Subsequent ticks: the class is already loaded, so we simply instantiate it again.
@@ -290,6 +296,11 @@ while ($loopSeconds > 0) {
     @file_put_contents($cronMarkerPath, (string) time(), LOCK_EX);
 
     new Automation();
+    try {
+        travianz_run_ai();
+    } catch (Throwable $e) {
+        if ($isCli) { fwrite(STDERR, "cron: AI error: " . $e->getMessage() . "\n"); }
+    }
     $ticks++;
 }
 

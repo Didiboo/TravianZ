@@ -14,6 +14,9 @@
 
 use App\Entity\User;
 
+require_once __DIR__ . '/../../../AI/AI.php';
+require_once __DIR__ . '/../../../AI/Db.php';
+
 // Multi-instance bootstrap: resolve the instance and bind the correct session/config.
 // config.php must remain at the beginning, as it initializes the transition to the resolver.
 // Load the generated instance configuration and language before using the admin session.
@@ -53,6 +56,14 @@ $villagesRequested   = isset($_POST['villages_amount']) ? (int) $_POST['villages
 $beginnersProtection = isset($_POST['users_protection']) ? $_POST['users_protection'] : 0;
 $postTribe           = (int) $_POST['tribe'];
 $mode                = isset($_POST['mode']) ? $_POST['mode'] : 'many_accounts';
+$npcActive           = isset($_POST['npc_active']) ? 1 : 0;
+$npcBehavior         = isset($_POST['npc_behavior']) ? (string) $_POST['npc_behavior'] : 'balanced';
+if (!TravianAI::isBehavior($npcBehavior)) { $npcBehavior = 'balanced'; }
+$aiDb = null;
+if ($npcActive) {
+    $aiDb = new TravianAIDb();
+    $aiDb->ensureSchema();
+}
 
 // Basic validation
 if (strlen($baseName) < 4) {
@@ -172,6 +183,8 @@ if ($mode === 'many_accounts') {
         $uid = $database->register($userName, password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]), $email, $tribe, $act);
         if (!$uid) continue;
 
+        $npcBuildBias = rand(1, 4);
+
         // profile protection dove
         $q = "UPDATE " . TB_PREFIX . "users SET desc2 = '[#0]' WHERE id = ".(int)$uid;
         mysqli_query($GLOBALS["link"], $q) or die(mysqli_error($database->dblink));
@@ -190,6 +203,16 @@ if ($mode === 'many_accounts') {
         $database->addUnits([$wid]);
         $database->addTech([$wid]);
         $database->addABTech([$wid]);
+
+        if ($npcActive && $aiDb instanceof TravianAIDb) {
+            $aiDb->exec(
+                'INSERT INTO {p}ai_players
+                    (uid, username, password, behavior, build_bias, next_think, created)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE username = VALUES(username), password = VALUES(password), behavior = VALUES(behavior), build_bias = VALUES(build_bias)',
+                [(int)$uid, $userName, $password, $npcBehavior, $npcBuildBias, 0, time()]
+            );
+        }
 
         $database->updateUserField($uid,"access",USER,1);
 
@@ -233,6 +256,8 @@ if ($mode === 'single_with_villages') {
         exit;
     }
 
+    $npcBuildBias = rand(1, 4);
+
     // protection dove
     $q = "UPDATE " . TB_PREFIX . "users SET desc2 = '[#0]' WHERE id = ".(int)$uid;
     mysqli_query($GLOBALS["link"], $q) or die(mysqli_error($database->dblink));
@@ -256,6 +281,16 @@ if ($mode === 'single_with_villages') {
 		$database->addUnits([$wid]);
         $database->addTech([$wid]);
         $database->addABTech([$wid]);
+    }
+
+    if ($npcActive && $aiDb instanceof TravianAIDb) {
+        $aiDb->exec(
+            'INSERT INTO {p}ai_players
+                (uid, username, password, behavior, build_bias, next_think, created)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE username = VALUES(username), password = VALUES(password), behavior = VALUES(behavior), build_bias = VALUES(build_bias)',
+            [(int)$uid, $userName, $password, $npcBehavior, $npcBuildBias, 0, time()]
+        );
     }
 
     // Enable user after villages created
