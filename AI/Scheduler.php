@@ -48,9 +48,9 @@ function travianz_run_ai(): void
         $db->ensureSchema();
         travianz_ai_debug('AI schema checked');
 
-        $baseUrl = defined('HOMEPAGE') && HOMEPAGE !== ''
-            ? HOMEPAGE
-            : (defined('SERVER') ? SERVER : '');
+        $baseUrl = defined('SERVER') && SERVER !== ''
+            ? SERVER
+            : (defined('HOMEPAGE') ? HOMEPAGE : '');
 
         travianz_ai_debug(
             'Base URL: ' . ($baseUrl !== '' ? $baseUrl : '[EMPTY]')

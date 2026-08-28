@@ -145,7 +145,7 @@ class TravianZCronInstaller
         }
 
         $cron = $root . DIRECTORY_SEPARATOR . 'cron.php';
-        $entry = '*/5 * * * * ' . self::shellQuote($php) . ' ' . self::shellQuote($cron)
+        $entry = '*/5 * * * * www-data ' . self::shellQuote($php) . ' ' . self::shellQuote($cron)
             . ' --instance=' . $instanceId . ' >/dev/null 2>&1';
 
         // Prefer a system cron file when the installer has sufficient rights.
@@ -239,7 +239,7 @@ class TravianZCronInstaller
     {
         if (defined('PHP_BINARY') && is_file(PHP_BINARY) && is_executable(PHP_BINARY)) {
             $base = basename(PHP_BINARY);
-            if ($base === 'php' || strpos($base, 'php') === 0) {
+            if (($base === 'php' || strpos($base, 'php') === 0) && stripos($base, 'fpm') === false) {
                 return PHP_BINARY;
             }
         }
