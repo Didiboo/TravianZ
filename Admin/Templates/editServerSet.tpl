@@ -392,6 +392,7 @@ function refresh(tz) {
                             <option value="2" <?php if(PEACE==2) echo "selected";?>><?php echo ADM_CHRISTMAS; ?></option>
                             <option value="3" <?php if(PEACE==3) echo "selected";?>><?php echo ADM_NEW_YEAR; ?></option>
                             <option value="4" <?php if(PEACE==4) echo "selected";?>><?php echo ADM_EASTER; ?></option>
+                            <option value="5" <?php if(PEACE==5) echo "selected";?>>Day/Night</option>
                         </select>
                     </td>
                 </tr>

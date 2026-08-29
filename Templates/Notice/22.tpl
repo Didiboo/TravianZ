@@ -144,6 +144,7 @@ if ($hasHero) {
 
         <?php
         // SAFE ICON INDEX (avoid undefined index warnings)
+        // Day/Night -> fallback -> peace
         $icons = ["peace", "xmas", "newy", "easter"];
         $icon = isset($icons[$type - 1]) ? $icons[$type - 1] : "peace";
         ?>

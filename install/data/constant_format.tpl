@@ -297,7 +297,15 @@ define("REG_OPEN",%REG_OPEN%);
 // 2 = Christmas
 // 3 = New Year
 // 4 = Easter
+// 5 = Day/Night
 define("PEACE",%PEACE%);
+
+// ***** Day/Night system
+// Day/Night start time, format HHMM
+define("DAY_NIGHT_START",%DAY_NIGHT_START%);
+
+// Day/Night end time, format HHMM
+define("DAY_NIGHT_END",%DAY_NIGHT_END%);
 
 // ***** Players protected from attacks
 // Comma-separated list of names. Players listed here cannot be attacked or

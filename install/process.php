@@ -320,6 +320,22 @@ class Process {
 		$findReplace["%T4_COMING%"] = $_POST['t4_coming'];
 		$findReplace["%REG_OPEN%"] = $_POST['reg_open'];
 		$findReplace["%PEACE%"] = $_POST['peace'];
+        // Day/Night system
+        $daynightStart = isset($_POST['day_night_start']) ? (int)$_POST['day_night_start'] : 1800;
+        $daynightEnd = isset($_POST['day_night_end']) ? (int)$_POST['day_night_end'] : 500;
+
+        if ($daynightStart < 0 || $daynightStart > 2359) {
+            $daynightStart = 1800;
+        }
+        if ($daynightEnd < 0 || $daynightEnd > 2359) {
+            $daynightEnd = 500;
+        }
+        if ($daynightStart === $daynightEnd) {
+            $daynightStart = 1800;
+            $daynightEnd = 500;
+        }
+        $findReplace["%DAY_NIGHT_START%"] = $daynightStart;
+        $findReplace["%DAY_NIGHT_END%"] = $daynightEnd;
 
 		//New Mechanics and Functions
 		$findReplace["%NEW_FUNCTIONS_OASIS%"] = $_POST['new_functions_oasis'];

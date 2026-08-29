@@ -128,8 +128,17 @@ if (MEDALINTERVAL >= 86400) {
 <td><b>: <font color="Red">
 <?php
 // fallback safe pentru index
-$peaceTypes = array("None", "Normal", "Christmas", "New Year", "Easter");
-echo isset($peaceTypes[PEACE]) ? $peaceTypes[PEACE] : "Unknown";
+$peaceTypes = array("None", "Normal", "Christmas", "New Year", "Easter", "Day/Night");
+if (isset($peaceTypes[PEACE])) {
+    echo $peaceTypes[PEACE];
+
+    if (PEACE == 5) {
+        echo " (Peaceful period from " . sprintf('%02d:%02d', floor(DAY_NIGHT_START / 100), DAY_NIGHT_START % 100)
+            . " to " . sprintf('%02d:%02d', floor(DAY_NIGHT_END / 100), DAY_NIGHT_END % 100) . ")";
+    }
+} else {
+    echo "Unknown";
+}
 ?>
 </font></b></td>
 </tr>

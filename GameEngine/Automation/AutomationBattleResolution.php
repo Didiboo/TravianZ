@@ -2629,7 +2629,25 @@ trait AutomationBattleResolution {
 
                 $defspy = $enforDefender['u4'] > 0 || $enforDefender['u14'] > 0 || $enforDefender['u23'] > 0 || $enforDefender['u44'] > 0;
 
-                if(PEACE == 0 || $targettribe == 4 || $targettribe == 5 || $scout){
+                // Day/Night mode: PEACE=5 applies only during the configured night period.
+                $peaceActive = false;
+
+            if (PEACE == 5) {
+                $currentTime = (int)date('Hi');
+
+                if (DAY_NIGHT_START > DAY_NIGHT_END) {
+                    $peaceActive = ($currentTime >= DAY_NIGHT_START || $currentTime < DAY_NIGHT_END);
+                } 
+                elseif (DAY_NIGHT_START < DAY_NIGHT_END) {
+                    $peaceActive = ($currentTime >= DAY_NIGHT_START && $currentTime < DAY_NIGHT_END);
+                }
+            }
+
+             // Normal combat:
+             // - PEACE=0
+             // - PEACE=5 outside the configured night period
+
+            if (PEACE == 0 || (PEACE == 5 && !$peaceActive) || $targettribe == 4 || $targettribe == 5 || $scout) {
                     // trapper resolution + prisoners — extracted to calculateTrappedUnits() [#155]
                     $trapResult = $this->calculateTrappedUnits($data, $Defender, $Attacker, $NatarCapital, $scout, $start, $end);
                     for($i = 1; $i <= 11; $i++) ${'traped'.$i} = $trapResult['traped'][$i];
