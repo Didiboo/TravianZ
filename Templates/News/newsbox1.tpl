@@ -131,7 +131,8 @@ if (MEDALINTERVAL >= 86400) {
 $peaceTypes = array("None", "Normal", "Christmas", "New Year", "Easter", "Day/Night");
 if (isset($peaceTypes[PEACE])) {
     echo $peaceTypes[PEACE];
-
+?></b></td>
+<td><b><?php
     if (PEACE == 5) {
         echo " (Peaceful period from " . sprintf('%02d:%02d', floor(DAY_NIGHT_START / 100), DAY_NIGHT_START % 100)
             . " to " . sprintf('%02d:%02d', floor(DAY_NIGHT_END / 100), DAY_NIGHT_END % 100) . ")";

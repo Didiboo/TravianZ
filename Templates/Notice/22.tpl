@@ -44,6 +44,8 @@ if ($type == 1) {
     $message1 = $attackerName." wishes you Merry Christmas";
 } elseif ($type == 3) {
     $message1 = $attackerName." wishes you Happy New Year";
+} elseif ($type == 4) {
+    $message1 = $attackerName." wishes you Happy Peace Mode !! ";
 } else {
     $message1 = $attackerName." wishes you Happy Easter";
 }

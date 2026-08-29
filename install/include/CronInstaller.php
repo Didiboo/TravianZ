@@ -134,81 +134,116 @@ class TravianZCronInstaller
     }
 
     private static function installLinux($root, $runtime, $instanceId)
-    {
-        if (!function_exists('exec')) {
-            return self::result(false, 'PHP exec() is disabled; the Linux scheduler cannot be configured automatically.');
-        }
-
-        $php = self::findLinuxPhp();
-        if ($php === null) {
-            return self::result(false, 'Could not locate the PHP CLI executable.');
-        }
-
-        $cron = $root . DIRECTORY_SEPARATOR . 'cron.php';
-        $entry = '*/5 * * * * www-data ' . self::shellQuote($php) . ' ' . self::shellQuote($cron)
-            . ' --instance=' . $instanceId . ' >/dev/null 2>&1';
-
-        // Prefer a system cron file when the installer has sufficient rights.
-        $systemFile = '/etc/cron.d/travianz-' . $instanceId;
-        if (@is_dir('/etc/cron.d') && @is_writable('/etc/cron.d')) {
-            $content = "# TravianZ automatic cron - " . $instanceId . "\n" . $entry . "\n";
-            if (@file_put_contents($systemFile, $content, LOCK_EX) !== false) {
-                self::writeStatus($runtime, array(
-                    'status' => 'REGISTERED',
-                    'platform' => 'Linux',
-                    'scheduler' => 'cron.d',
-                    'file' => $systemFile,
-                    'schedule' => 'Every 5 minutes',
-                    'instance' => $instanceId,
-                    'php' => $php,
-                    'registered_at' => date('c'),
-                ));
-                return self::result(true, 'Linux cron configured automatically.', array('file' => $systemFile));
-            }
-        }
-
-        // Otherwise try the current OS user's crontab. This works for CLI
-        // installers and hosts where the installer user owns a crontab.
-        $current = array();
-        $currentCode = 1;
-        @exec('crontab -l 2>/dev/null', $current, $currentCode);
-        if ($currentCode !== 0) {
-            $current = array();
-        }
-
-        $marker = '# TravianZ automatic cron ' . $instanceId;
-        $filtered = array();
-        foreach ($current as $line) {
-            if (strpos($line, $marker) === 0) {
-                continue;
-            }
-            $filtered[] = $line;
-        }
-        $filtered[] = $marker;
-        $filtered[] = $entry;
-
-        $tmp = $runtime . DIRECTORY_SEPARATOR . 'cron-install.txt';
-        @file_put_contents($tmp, implode("\n", $filtered) . "\n", LOCK_EX);
-        $installOutput = array();
-        $installCode = 1;
-        @exec('crontab ' . self::shellQuote($tmp) . ' 2>&1', $installOutput, $installCode);
-        @unlink($tmp);
-
-        if ($installCode === 0) {
-            self::writeStatus($runtime, array(
-                'status' => 'REGISTERED',
-                'platform' => 'Linux',
-                'scheduler' => 'user crontab',
-                'schedule' => 'Every 5 minutes',
-                'instance' => $instanceId,
-                'php' => $php,
-                'registered_at' => date('c'),
-            ));
-            return self::result(true, 'Linux user crontab configured automatically.');
-        }
-
-        return self::result(false, 'The installer has no permission to register a Linux cron job for this account. Run the installer with an account allowed to manage cron.');
+{
+    if (!function_exists('exec')) {
+        return self::result(false, 'PHP exec() is disabled; the Linux scheduler cannot be configured automatically.');
     }
+
+    $php = self::findLinuxPhp();
+    if ($php === null) {
+        return self::result(false, 'Could not locate the PHP CLI executable.');
+    }
+
+    $cron = $root . DIRECTORY_SEPARATOR . 'cron.php';
+
+    /*
+     * This is a USER crontab entry.
+     * Unlike /etc/cron.d, user crontabs do NOT contain the username field.
+     */
+     // Correct:
+     // */5 * * * * /usr/bin/php /var/www/travian/cron.php --instance=s1
+     //   Incorrect in a user crontab:
+     // */5 * * * * www-data /usr/bin/php ...
+     
+    $entry = '*/5 * * * * ' . self::shellQuote($php) . ' ' . self::shellQuote($cron)
+        . ' --instance=' . $instanceId . ' >/dev/null 2>&1';
+
+    /*
+     * The TravianZ scheduler runs as www-data.
+     * The installer is normally executed by the web server as www-data,
+     * so this crontab belongs to the same account that owns the instances.
+     */
+    $cronUser = 'www-data';
+
+    $current = array();
+    $currentCode = 1;
+
+    @exec('crontab -u ' . self::shellQuote($cronUser) . ' -l 2>/dev/null', $current, $currentCode);
+
+    if ($currentCode !== 0) {
+        $current = array();
+    }
+
+    /*
+     * Remove only the TravianZ entry belonging to this instance.
+     * Other TravianZ instances and unrelated cron jobs are preserved.
+     */
+    $marker = '# TravianZ automatic cron ' . $instanceId;
+    $filtered = array();
+
+    foreach ($current as $line) {
+        if (strpos($line, $marker) === 0) {
+            continue;
+        }
+
+        $filtered[] = $line;
+    }
+
+    /*
+     * Avoid accumulating duplicate blank lines at the end.
+     */
+    while (!empty($filtered) && trim(end($filtered)) === '') {
+        array_pop($filtered);
+    }
+
+    if (!empty($filtered)) {
+        $filtered[] = '';
+    }
+
+    $filtered[] = $marker;
+    $filtered[] = $entry;
+
+    $tmp = $runtime . DIRECTORY_SEPARATOR . 'cron-install.txt';
+
+    if (@file_put_contents($tmp, implode("\n", $filtered) . "\n", LOCK_EX) === false) {
+        return self::result(false, 'Unable to create the temporary cron configuration file.');
+    }
+
+    $installOutput = array();
+    $installCode = 1;
+
+    @exec(
+        'crontab -u ' . self::shellQuote($cronUser)
+        . ' ' . self::shellQuote($tmp)
+        . ' 2>&1',
+        $installOutput,
+        $installCode
+    );
+
+    @unlink($tmp);
+
+    if ($installCode === 0) {
+        self::writeStatus($runtime, array(
+            'status' => 'REGISTERED',
+            'platform' => 'Linux',
+            'scheduler' => 'www-data crontab',
+            'schedule' => 'Every 5 minutes',
+            'instance' => $instanceId,
+            'php' => $php,
+            'registered_at' => date('c'),
+        ));
+
+        return self::result(
+            true,
+            'Linux user crontab configured automatically for www-data.'
+        );
+    }
+
+    return self::result(
+        false,
+        'The installer could not register the Linux cron job in the www-data crontab.'
+    );
+}
 
     private static function findWindowsPhp()
     {
