@@ -21,6 +21,7 @@
 
 if($_SESSION['access'] < ADMIN) die("Access Denied!");
 $id = $_SESSION['id'];
+require_once dirname(__DIR__, 2) . '/AI/AI.php';
 
 $baseName = "Farm"; $amount = 20; $villages = 5; $mode = "many_accounts";
 $errorMsg = ""; $successMsg = "";
@@ -75,6 +76,11 @@ elseif(isset($_GET['g']) && $_GET['g']=='OK'){
 .hint{font-size:9px;color:#555;margin-left:118px;margin-top:-5px;margin-bottom:6px}
 .check{margin:10px 0 12px;font-size:11px;color:#222}
 .check label{display:flex;align-items:center;gap:5px}
+.npc-box{margin:12px 0;padding:9px 10px;border:1px solid #c9d8e6;border-radius:4px;background:#f7fbff}
+.npc-title{font-size:11px;font-weight:bold;color:#234;margin-bottom:7px}
+.npc-active{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:bold;margin-bottom:8px}
+.npc-behavior-row{margin-bottom:0}
+.npc-behavior-row select{width:160px;padding:4px;border:1px solid #999;border-radius:3px;background:#fff;color:#111;font-size:11px}
 
 /* TRIBES VERTICAL */
 .tribe-wrap{margin-top:8px;}
@@ -139,6 +145,22 @@ elseif(isset($_GET['g']) && $_GET['g']=='OK'){
 
       <div class="check">
         <label><input type="checkbox" name="users_protection" checked><?php echo ADM_ENABLE_BEGINNER_PROTECTION; ?></label>
+      </div>
+
+      <div class="npc-box">
+        <div class="npc-title">PNJ</div>
+        <label class="npc-active">
+          <input type="checkbox" name="npc_active" value="1">
+          <span>PNJ actif</span>
+        </label>
+        <div class="row npc-behavior-row">
+          <label for="npc_behavior">Comportement</label>
+          <select id="npc_behavior" name="npc_behavior">
+            <?php foreach(TravianAI::behaviors() as $key => $behavior): ?>
+              <option value="<?php echo htmlspecialchars($key); ?>"><?php echo htmlspecialchars($behavior['label']); ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
       </div>
 
       <div class="tribe-wrap">

@@ -107,7 +107,7 @@ VALUES
 $result = $database->query($sql);
 
 if (!$result) {
-    die("Message insert failed: " . $database->getError());
+    die("Message insert failed: " . $form->getError('Database'));
 }
 
 // ---------------------------------------------------------------------------

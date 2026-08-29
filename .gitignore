@@ -44,8 +44,4 @@ var/log/access.log
 *.lnk
 
 # Generated per-instance TravianZ configuration files
-/instances/*/config.php
-/instances/*/installed
-/instances/*/runtime/
-/instances/*/Prevention/
-/instances/*/Notes/
+/instances/*

@@ -20,15 +20,20 @@
 #################################################################################
 
 include("../GameEngine/config.php");
+require_once __DIR__ . "/../include/CronInstaller.php";
 
 // The installation marker belongs to the current world, not to the shared
 // TravianZ codebase. This allows S1, S2, S3... to be installed independently.
 $instanceId = defined('INSTANCE_ID') ? INSTANCE_ID : 's1';
+$cronSetup = TravianZCronInstaller::install($instanceId);
 $instancePath = dirname(__DIR__, 2) . '/instances/' . $instanceId;
 if (!is_dir($instancePath)) {
     @mkdir($instancePath, 0755, true);
 }
 @touch($instancePath . '/installed');
+
+$cronStatusStyle = $cronSetup['success'] ? 'background:#f0fdf4;border-color:#bbf7d0;color:#166534;' : 'background:#fef2f2;border-color:#fecaca;color:#991b1b;';
+$cronStatusTitle = $cronSetup['success'] ? '✓ Cron automatique configuré' : '⚠ Cron automatique non configuré';
 
 // Keep the installer directory available. Renaming it after the first world
 // made multi-instance installation unnecessarily painful, because creating a
@@ -37,6 +42,13 @@ if (!is_dir($instancePath)) {
 ?>
 <div class="card" style="text-align:center;">
   <h2 style="margin:0 0 8px;">🎉 Installation Complete!</h2>
+  <div style="margin:14px auto 0;max-width:720px;text-align:left;border:1px solid;border-radius:10px;padding:12px 14px;<?=htmlspecialchars($cronStatusStyle, ENT_QUOTES, 'UTF-8')?>">
+    <b><?=htmlspecialchars($cronStatusTitle, ENT_QUOTES, 'UTF-8')?></b>
+    <div style="margin-top:5px;"><?=htmlspecialchars($cronSetup['message'], ENT_QUOTES, 'UTF-8')?></div>
+    <?php if ($cronSetup['success'] && !empty($cronSetup['details']['task'])): ?>
+      <div style="margin-top:5px;font-size:12px;">Task: <code><?=htmlspecialchars($cronSetup['details']['task'], ENT_QUOTES, 'UTF-8')?></code> — toutes les 5 minutes.</div>
+    <?php endif; ?>
+  </div>
   <p style="color:#475569;">Thanks for installing TravianZ. The install folder remains available so additional worlds can be created. Protect it from public access in production.</p>
   <div style="display:inline-block;text-align:left;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px 16px;font-family:ui-monospace;font-size:13px;line-height:1.6;">
     chmod -R 755 GameEngine<br>
@@ -52,7 +64,7 @@ if (!is_dir($instancePath)) {
   <div class="grid-2" style="gap:14px;">
     <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:14px;">
       <b>🔒 Secure Your Server</b>
-      <p style="margin:6px 0 0;color:#475569;font-size:14px;">Protect /Admin with .htpasswd, enable HTTPS, and set cronjobs for automated tasks.</p>
+      <p style="margin:6px 0 0;color:#475569;font-size:14px;">Protect /Admin with .htpasswd, enable HTTPS, and Automation cron is configured automatically when the operating system permits it.</p>
     </div>
     <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:14px;">
       <b>📖 Read the Docs</b>

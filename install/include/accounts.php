@@ -89,9 +89,11 @@
             $addABTechWrefs = [];
 
 		    while (!$admin_village_created) {
-    		    $wid = $admin->getWref($xcoor++, round(WORLD_MAX / 2));
-    		    $status = $database->getVillageState($wid);
-    		    if($status == 0) {
+    		    $wid = $admin->getWref($xcoor, round(WORLD_MAX / 2));
+               // Search for a valid village location: fieldtype 3 (village) and oasistype 0 (not oasis).
+				$worldRow = mysqli_fetch_assoc(mysqli_query( $database->dblink, "SELECT fieldtype, oasistype FROM " . TB_PREFIX . "wdata WHERE id = " . (int)$wid . " LIMIT 1" ));
+    		    if ($worldRow && (int)$worldRow['fieldtype'] === 3 && (int)$worldRow['oasistype'] === 0 && $database->getVillageState($wid) == 0) 
+				   {
     		        $database->setFieldTaken($wid);
     		        $database->addVillage($wid, $uid, $_POST['aname'], 1);
 
@@ -103,7 +105,9 @@
                     $addTechWrefs[] = $wid;
                     $addABTechWrefs[] = $wid;
     		        $admin_village_created = true;
-    		    }
+    		    } else { 
+				$xcoor++;
+				}
 		    }
 
             $database->addUnits($addUnitsWrefs);
