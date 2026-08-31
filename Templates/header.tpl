@@ -93,9 +93,16 @@ $dayNightImage = 'day_image';
 
 /**
  * Night mode
+ * The display uses the same configured period as the Day/Night peace system.
  */
-if ($hour > 1759 || $hour < 500) {
-    $dayNightImage = 'night_image';
+if (DAY_NIGHT_START > DAY_NIGHT_END) {
+    if ($hour >= DAY_NIGHT_START || $hour < DAY_NIGHT_END) {
+        $dayNightImage = 'night_image';
+    }
+} elseif (DAY_NIGHT_START < DAY_NIGHT_END) {
+    if ($hour >= DAY_NIGHT_START && $hour < DAY_NIGHT_END) {
+        $dayNightImage = 'night_image';
+    }
 }
 ?>
 

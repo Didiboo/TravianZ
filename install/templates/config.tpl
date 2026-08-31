@@ -233,7 +233,15 @@ $dbPrefix = $_SESSION[$prefixSessionKey];
       <div><label>Great Workshop</label><select class="input" name="great_wks"><option value="true">true</option><option value="false" selected>false</option></select></div>
       <div><label>WW enabled</label><select class="input" name="ww"><option value="true">true</option><option value="false" selected>false</option></select></div>
       <div><label>Show Natars</label><select class="input" name="show_natars"><option value="true">true</option><option value="false" selected>false</option></select></div>
-      <div><label>Peace system</label><select class="input" name="peace"><option value="0" selected>None</option><option value="1">Normal</option><option value="2">Christmas</option><option value="3">New Year</option><option value="4">Easter</option></select></div>
+      <div><label>Peace system</label><select class="input" name="peace"><option value="0" selected>None</option><option value="1">Normal</option><option value="2">Christmas</option><option value="3">New Year</option><option value="4">Easter</option><option value="5">Day/Night</option></select></div>
+    </div>
+    <div>
+     <label>Day/Night start (HHMM)</label>
+     <input class="input" type="number" name="day_night_start" value="1800" min="0" max="2359">
+    </div>
+    <div>
+     <label>Day/Night end (HHMM)</label>
+     <input class="input" type="number" name="day_night_end" value="500" min="0" max="2359">
     </div>
   </div>
 </div>

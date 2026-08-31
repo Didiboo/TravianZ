@@ -44,6 +44,8 @@ if ($type == 1) {
     $message1 = $attackerName." wishes you Merry Christmas";
 } elseif ($type == 3) {
     $message1 = $attackerName." wishes you Happy New Year";
+} elseif ($type == 4) {
+    $message1 = $attackerName." wishes you Happy Peace Mode !! ";
 } else {
     $message1 = $attackerName." wishes you Happy Easter";
 }
@@ -144,6 +146,7 @@ if ($hasHero) {
 
         <?php
         // SAFE ICON INDEX (avoid undefined index warnings)
+        // Day/Night -> fallback -> peace
         $icons = ["peace", "xmas", "newy", "easter"];
         $icon = isset($icons[$type - 1]) ? $icons[$type - 1] : "peace";
         ?>
