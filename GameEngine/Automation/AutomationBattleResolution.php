@@ -317,7 +317,18 @@ trait AutomationBattleResolution {
                     						if ($i == 41) $i = 99;
                     						if ($bdo['f'.$i] > 0 && $i != 40) $list[] = $i;
                     					}
-                    					$catapultTarget2 = $list[ rand(0, count($list) - 1) ];
+                    					// FIX (PHP log): daca $list e gol (niciun target alternativ
+                    					// cu nivel>0), rand(0, count($list)-1) devine rand(0,-1).
+                    					// PHP NU arunca eroare aici (verificat pe 8.3) - intoarce
+                    					// pseudo-random 0 sau -1, ambele chei inexistente in $list,
+                    					// deci "Undefined array key -1"/0 si $catapultTarget2=null.
+                    					// Pastram fallback-ul 99 folosit deja mai sus (linia ~301)
+                    					// pentru cazul "niciun target gasit".
+                    					if (!empty($list)) {
+                    						$catapultTarget2 = $list[ rand(0, count($list) - 1) ];
+                    					} else {
+                    						$catapultTarget2 = 99;
+                    					}
                     				}
                     				
                     				/**

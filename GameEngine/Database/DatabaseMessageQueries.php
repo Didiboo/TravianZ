@@ -405,7 +405,11 @@ References: User ID/Message ID, Mode
         // first of all, check if we should be using cache and whether the field
         // required is already cached
         if ($use_cache && ($cachedValue = self::returnCachedContent(self::$noticesCacheById, $id)) && !is_null($cachedValue)) {
-            return $cachedValue[$field];
+            // FIX (PHP log): cand $field e null (apelantul vrea randul intreg,
+            // nu un camp anume), vechiul cod facea $cachedValue[$field] cu
+            // $field=null -> PHP converteste cheia null in "" -> "Undefined
+            // array key \"\"". Acelasi tratament ca pe ramura fara cache mai jos.
+            return is_null($field) ? $cachedValue : $cachedValue[$field];
         }
 
 		$q = "SELECT * FROM " . TB_PREFIX . "ndata where `id` = $id ORDER BY time ".(isset($_GET['o']) && $_GET['o'] == 1 ? 'ASC' : 'DESC')." LIMIT 1";
@@ -413,6 +417,18 @@ References: User ID/Message ID, Mode
 		$dbarray = mysqli_fetch_array($result);
 
         self::$noticesCacheById[$id] = $dbarray;
+
+        // FIX (PHP log): id inexistent in ndata (notice sters / link stale)
+        // -> mysqli_fetch_array() intoarce null -> $dbarray e null. Vechiul
+        // cod incerca oricum self::$noticesCacheById[$id][$field] pe el,
+        // dand "Trying to access array offset on null". Notice-ul chiar nu
+        // exista, deci intoarcem null direct (comportament identic la
+        // consumatori: Message::getReadNotice() trateaza deja null ca
+        // "nu am gasit/nu am voie", vezi fix-ul din Message.php).
+        if (is_null($dbarray)) {
+            return null;
+        }
+
         return is_null($field) ? self::$noticesCacheById[$id] : self::$noticesCacheById[$id][$field];
 	}
 

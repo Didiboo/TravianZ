@@ -143,17 +143,29 @@ trait DatabaseBuildingQueries {
 		global ${'bid'.$tid}, $bid15;
 		
 		$dataArray = ${'bid'.$tid};
+
+		$level = $buildingArray['f'.$id] + $plus;
+
+		// FIX (PHP log): daca $level depaseste nivelul maxim definit in
+		// $dataArray (cladire deja la nivel maxim - acelasi guard pus si in
+		// Building::checkResource()/resourceRequired()), $dataArray[$level]
+		// nu exista -> "Undefined array key 21" + acces pe null pe ['time'].
+		// Timp 0 e fallback sigur (apelantii trateaza deja "cost zero" ca
+		// raspuns pentru cazul de nivel maxim, vezi resourceRequired()).
+		if (!isset($dataArray[$level])) {
+			return 0;
+		}
 		
 		//Check if we've the main building or not
 		$mainBuilding = $this->getFieldLevelInVillage($wref, 15);
 		if($tid == 15){
-			if($mainBuilding == 0) return round($dataArray[$buildingArray['f'.$id] + $plus]['time'] / SPEED * 5);
-			else return round($dataArray[$buildingArray['f'.$id] + $plus]['time'] / SPEED);
+			if($mainBuilding == 0) return round($dataArray[$level]['time'] / SPEED * 5);
+			else return round($dataArray[$level]['time'] / SPEED);
 		}else{
 			if($mainBuilding > 0) {
-				return round($dataArray[$buildingArray['f'.$id] + $plus]['time'] * ($bid15[$mainBuilding]['attri'] / 100)  / SPEED);
+				return round($dataArray[$level]['time'] * ($bid15[$mainBuilding]['attri'] / 100)  / SPEED);
 			}
-			else return round($dataArray[$buildingArray['f'.$id] + $plus]['time'] * 5 / SPEED);
+			else return round($dataArray[$level]['time'] * 5 / SPEED);
 		}
 	}
 	

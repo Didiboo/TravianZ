@@ -57,6 +57,8 @@ if ($winner) {
     |--------------------------------------------------------------------------
     */
 
+    // BUG REPARAT: access<8/10 nu excludea conturile banate (access=0); access>0
+    // adaugat mai jos ca un cont banat sa nu poata fi declarat castigator de server.
     $q = "SELECT 
         u.id AS userid,
         u.username,
@@ -65,7 +67,7 @@ if ($winner) {
         (SELECT COUNT(v.wref) FROM " . TB_PREFIX . "vdata v WHERE v.owner = u.id AND v.type != 99) AS totalvillages,
         (SELECT a.tag FROM " . TB_PREFIX . "alidata a WHERE a.id = u.alliance) AS allitag
     FROM " . TB_PREFIX . "users u
-    WHERE u.access < " . (INCLUDE_ADMIN ? "10" : "8") . " AND u.tribe IN (1,2,3,6,7,8,9)
+    WHERE u.access > 0 AND u.access < " . (INCLUDE_ADMIN ? "10" : "8") . " AND u.tribe IN (1,2,3,6,7,8,9)
     ORDER BY totalpop DESC, totalvillages DESC, u.username ASC";
 
         $result = (mysqli_query($database->dblink,$q));
@@ -86,6 +88,7 @@ if ($winner) {
     |--------------------------------------------------------------------------
     */
 
+    // BUG REPARAT: vezi comentariul de la Top Population de mai sus.
     $q = "SELECT 
         u.id AS userid,
         u.username,
@@ -93,7 +96,7 @@ if ($winner) {
         (SELECT COUNT(v.wref) FROM " . TB_PREFIX . "vdata v WHERE v.owner = u.id AND v.type != 99) AS totalvillages,
         (SELECT SUM(v.pop) FROM " . TB_PREFIX . "vdata v WHERE v.owner = u.id) AS pop
     FROM " . TB_PREFIX . "users u
-    WHERE u.apall >= 0 AND u.access < " . (INCLUDE_ADMIN ? "10" : "8") . " AND u.tribe IN (1,2,3,6,7,8,9)
+    WHERE u.apall >= 0 AND u.access > 0 AND u.access < " . (INCLUDE_ADMIN ? "10" : "8") . " AND u.tribe IN (1,2,3,6,7,8,9)
     ORDER BY u.apall DESC, pop DESC, u.username ASC";
 
         $result = mysqli_query($database->dblink,$q);
@@ -113,6 +116,7 @@ if ($winner) {
     |--------------------------------------------------------------------------
     */
 
+    // BUG REPARAT: vezi comentariul de la Top Population de mai sus.
     $q = "SELECT 
         u.id AS userid,
         u.username,
@@ -120,7 +124,7 @@ if ($winner) {
         (SELECT COUNT(v.wref) FROM " . TB_PREFIX . "vdata v WHERE v.owner = u.id AND v.type != 99) AS totalvillages,
         (SELECT SUM(v.pop) FROM " . TB_PREFIX . "vdata v WHERE v.owner = u.id) AS pop
     FROM " . TB_PREFIX . "users u
-    WHERE u.dpall >= 0 AND u.access < " . (INCLUDE_ADMIN ? "10" : "8") . " AND u.tribe IN (1,2,3,6,7,8,9)
+    WHERE u.dpall >= 0 AND u.access > 0 AND u.access < " . (INCLUDE_ADMIN ? "10" : "8") . " AND u.tribe IN (1,2,3,6,7,8,9)
     ORDER BY u.dpall DESC, pop DESC, u.username ASC";
 
         $result = mysqli_query($database->dblink,$q);

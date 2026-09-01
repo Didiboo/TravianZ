@@ -299,7 +299,7 @@ class Building {
         // upgrade
         $loopLevel = $this->isLoop($fieldId);
         $currentLevel = $this->isCurrent($fieldId);
-
+		
         if ($this->isMax($gid, $fieldId, $loopLevel + $currentLevel)) {
             $this->redirect($fieldId);
         }
@@ -523,6 +523,13 @@ class Building {
     $resourceCheck = $this->checkResource($gid, $fieldId);
 
     switch ($resourceCheck) {
+
+        // FIX (PHP log): cod nou intors de checkResource() cand nivelul
+        // cerut nu mai e definit (deja la maxim) - vezi nota din
+        // checkResource(). Mapam la acelasi mesaj (MAX_LEVEL) ca gate-ul
+        // isMax() de mai sus (return 1 la inceputul functiei).
+        case 0:
+            return 1;
 
         case 1:
             return 5;
@@ -1208,6 +1215,21 @@ class Building {
 
     $nextLevel = $this->vil->resarray['f'.$fieldId] + $plus;
 
+    // FIX (PHP log): daca $nextLevel depaseste nivelul maxim definit in
+    // $dataarray, $dataarray[$nextLevel] nu exista -> "Undefined array
+    // key" + acces pe null pe liniile de mai jos. Costurile null
+    // comparate cu > (wood>maxstore etc.) treceau silentios drept 0,
+    // deci functia ajungea sa intoarca 4 ("resurse suficiente") pentru
+    // un upgrade care nu ar trebui sa mai fie posibil. In mod normal
+    // isMax() din canBuild()/canProcess() ar trebui sa opreasca cererea
+    // inainte sa ajunga aici - acesta e doar un fallback defensiv daca
+    // acele verificari sunt ocolite (vezi nota din canProcess() despre
+    // Master Builder). Cod nou (0), distinct de 1-4 existente, mapat mai
+    // jos in canBuild() la mesajul MAX_LEVEL.
+    if (!isset($dataarray[$nextLevel])) {
+        return 0;
+    }
+
     $required = $dataarray[$nextLevel];
 
     $wood = $required['wood'];
@@ -1758,8 +1780,16 @@ class Building {
 
     $dataarray = isset($GLOBALS['bid'.$gid]) ? $GLOBALS['bid'.$gid] : null;
 
-    // safety
-    if (!$dataarray) {
+    $level = $this->vil->resarray['f'.$fieldId] + $plus;
+
+    // FIX (PHP log): pattern-ul de siguranta de mai jos verifica doar daca
+    // $dataarray exista deloc, nu si daca $level (curent + plus) e in
+    // limitele lui. Cand cladirea a scapat deja la nivelul maxim definit
+    // (ex. gid normal cu nivel 20, plus=1 -> $dataarray[21] nu exista),
+    // $required devenea null si $required['wood'] etc. dadeau "Trying to
+    // access array offset on null". Extindem verificarea sa acopere si
+    // cazul asta, cu acelasi fallback de "cost zero" folosit deja mai jos.
+    if (!$dataarray || !isset($dataarray[$level])) {
 
         $empty = array(
             'wood' => 0,
@@ -1773,8 +1803,6 @@ class Building {
 
         return $this->resourceReqCache[$cacheKey] = $empty;
     }
-
-    $level = $this->vil->resarray['f'.$fieldId] + $plus;
 
     $required = $dataarray[$level];
 

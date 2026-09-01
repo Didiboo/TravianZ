@@ -436,6 +436,15 @@ class Message
     {
         global $database, $session;
         $notice = $database->getNotice2($id);
+
+        // FIX (PHP log): id inexistent (notice sters / link stale) ->
+        // getNotice2() intoarce null -> $notice['uid'] pica cu "Trying to
+        // access array offset on null". Tratam identic cu cazul
+        // "neautorizat" de mai jos (return null).
+        if ($notice === null) {
+            return null;
+        }
+
         if (
             $notice['uid'] == $session->uid ||
             $notice['ally'] == $session->alliance

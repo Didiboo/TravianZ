@@ -92,8 +92,12 @@ trait DatabaseStatisticsQueries {
 	     * jucatorii acelor triburi nu-si vedeau niciodata satele acolo.
 	     *
 	     * Aceeasi lista completa e folosita deja in winner.php.
+	     *
+	     * BUG REPARAT #2: u.access<8/10 excludea Multihunter(8)/Admin(9) dar nu si
+	     * conturile banate (access=0, 0 < 8 e adevarat); u.access>0 adaugat, deci
+	     * satele unui cont banat nu mai sunt colorate dupa rang pe harta lumii.
 	     */
-	    $q = "SELECT v.wref,v.name,v.owner,v.pop FROM " . TB_PREFIX . "vdata AS v," . TB_PREFIX . "users AS u WHERE v.owner=u.id AND u.tribe IN(1,2,3,6,7,8,9".(SHOW_NATARS ? ',5' : '').") AND v.wref != '' AND u.access<" . (INCLUDE_ADMIN ? "10" : "8");
+	    $q = "SELECT v.wref,v.name,v.owner,v.pop FROM " . TB_PREFIX . "vdata AS v," . TB_PREFIX . "users AS u WHERE v.owner=u.id AND u.tribe IN(1,2,3,6,7,8,9".(SHOW_NATARS ? ',5' : '').") AND v.wref != '' AND u.access>0 AND u.access<" . (INCLUDE_ADMIN ? "10" : "8");
 		$result = mysqli_query($this->dblink,$q);
 		return $this->mysqli_fetch_all($result);
 	}
