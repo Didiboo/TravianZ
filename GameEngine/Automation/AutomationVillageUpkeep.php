@@ -353,6 +353,17 @@ trait AutomationVillageUpkeep {
     	
     	//Get village infos
     	$villageInfoArray = $database->getVillage($bountywid);
+
+    	// BUG FIXED: $bountywid can be a village razed earlier in the same batch
+    	// (either the attack target itself, or the conqureby owner of a captured
+    	// oasis - both call updateRes() from AutomationBattleResolution.php).
+    	// getVillage() then returns null and every read below ('natar', 'pop',
+    	// 'lastupdate') threw "Trying to access array offset on null", cascading
+    	// into bountyGetResourceProd() with a null $resArray too. There is
+    	// nothing meaningful to update for a village that no longer exists, so
+    	// skip entirely - modifyResource()/updateVillage() below would just be
+    	// a harmless no-op UPDATE matching zero rows anyway.
+    	if (!is_array($villageInfoArray)) return;
     	
     	//Get building and resource fields array
     	$resArray = $database->getResourceLevel($bountywid, false);
