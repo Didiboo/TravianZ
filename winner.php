@@ -6,7 +6,7 @@ $start_timer = $generator->pageLoadTimeStart();
 ##              -= YOU MAY NOT REMOVE OR CHANGE THIS NOTICE =-                 ##
 ## --------------------------------------------------------------------------- ##
 ##  Filename       : winner.php                      	                       ##
-##  Type           : In Game Alliance Page                                     ##
+##  Type           : In Game Winner Announce Page                              ##
 ## --------------------------------------------------------------------------- ##
 ##  Developed by   : aggenkeech - and a little help from Eyas95 			   ##
 ##  Refactored by  : Shadow                                                    ##

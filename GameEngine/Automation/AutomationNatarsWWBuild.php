@@ -52,12 +52,20 @@ trait AutomationNatarsWWBuild
         $planTime = strtotime(START_DATE)
             + ((defined('NATARS_WW_BUILDING_PLAN_SPAWN_TIME') ? (int) NATARS_WW_BUILDING_PLAN_SPAWN_TIME : 0) * 86400);
 
-        $speed  = (defined('SPEED') && SPEED > 0) ? (float) SPEED : 1.0;
-        $startAt = $planTime + (int) round($delay * 86400 / $speed);
+        // BUG FIX: intarzierea trebuie sa fie in zile CALENDARISTICE fixe de la
+        // planTime, la fel ca NATARS_SPAWN_TIME / NATARS_WW_SPAWN_TIME /
+        // NATARS_WW_BUILDING_PLAN_SPAWN_TIME (toate calculate cu
+        // strtotime(START_DATE) + CONST*86400, fara nicio scalare). Varianta
+        // veche impartea $delay*86400 la $speed, deci pe un server cu viteza
+        // mare 10 zile deveneau minute/secunde reale - Natarii porneau practic
+        // odata cu planurile.
+        $startAt = $planTime + ($delay * 86400);
 
         if (time() < $startAt) {
             return false;
         }
+
+        $speed = (defined('SPEED') && SPEED > 0) ? (float) SPEED : 1.0;
 
         // ATENTIE: NATARS_UID e constanta de CLASA (Artifacts::NATARS_UID), nu
         // una globala. defined('NATARS_UID') intoarce mereu false, deci o
