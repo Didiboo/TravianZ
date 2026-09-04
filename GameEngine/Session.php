@@ -271,6 +271,16 @@ function __construct() {
             $_SERVER['HTTP_USER_AGENT'] ?? ''
         );
 
+        // BUG FIXED: land directly on winner.php after login once the server has
+        // been won, instead of dorf1.php (or nachrichten.php for uid 1) and
+        // relying on isWinner() to bounce the very next page load - same end
+        // result either way (isWinner() still covers every other entry point),
+        // just without the extra redirect hop for the single most common one.
+        if ($database->isThereAWinner()) {
+            header("Location: winner.php");
+            exit;
+        }
+
         if ($dbarray['id'] == 1) {
             header("Location: nachrichten.php");
             exit;
@@ -379,26 +389,44 @@ function __construct() {
 
     /**
      * FIXED: winner condition bug (safe parentheses + logic)
+     *
+     * BUG FIXED (game-lock after server win): this only protected 3 pages
+     * (build.php, plus1.php, plus.php?id>=7). Every other gameplay-changing
+     * endpoint - most importantly a2b.php (attacks/reinforcements/troop
+     * movements), but also dorf1.php/dorf2.php/dorf3.php, karte.php, resource
+     * transfers, troop training, etc. - stayed fully playable after the server
+     * was won, including actually executing on the backend (INSERT/UPDATE
+     * attack/reinforce) before any page ever redirected. Widened to a blanket
+     * lock: everything except winner.php itself and logout.php now redirects,
+     * for every logged-in request. This method is called from checkLogin(),
+     * which runs at the very start of Session::__construct() - itself the very
+     * first include in Village.php, which every gameplay page includes before
+     * any of its own logic - so the lock (and the exit; that comes with it)
+     * fires before a single gameplay DB write can happen, not just as a
+     * frontend redirect. checkLogin() only calls this while $user is set (see
+     * call site above), so anonymous visitors can still reach login.php to
+     * authenticate; $this->inAdmin mirrors the same admin exemption already
+     * used in SurfControl(), so the operator isn't locked out of Admin/.
      */
     function isWinner() {
         global $database;
 
+        if ($this->inAdmin) {
+            return;
+        }
+
+        if (!$database->isThereAWinner()) {
+            return;
+        }
+
         $requiredPage = basename($_SERVER['PHP_SELF']);
 
-        $idParam = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-
-        if (
-            $database->isThereAWinner() &&
-            (
-                in_array($requiredPage, ['build.php', 'plus1.php']) ||
-                (
-                    $requiredPage === 'plus.php' && $idParam >= 7
-                )
-            )
-        ) {
-            header('Location: winner.php');
-            exit;
+        if (in_array($requiredPage, ['winner.php', 'logout.php'], true)) {
+            return;
         }
+
+        header('Location: winner.php');
+        exit;
     }
 
     /**

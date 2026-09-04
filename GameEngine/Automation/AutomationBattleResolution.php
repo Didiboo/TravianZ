@@ -70,7 +70,15 @@ trait AutomationBattleResolution {
                 
                 // update all that needs updating
                 $database->setVillageLevel($data['to'], $fieldsToSet, $fieldValuesToSet);
-				
+                
+                // BUG FIXED: $tbgid is 0 when the catapult targets an already-empty field
+                // slot (nothing ever built there) - $newLevel==0 still runs this whole
+                // "destroyed" branch even though tblevel was already 0 (see the guard right
+                // above only skips the build-queue update, not this block). There is no
+                // "bid0" data array (building type IDs start at 1), so $GLOBALS["bid0"]
+                // doesn't exist -> "Undefined global variable $bid0". Null-coalescing keeps
+                // the exact same downstream result ($buildarray stays effectively empty,
+                // so the isset() check below is still false) without the warning.
                 $buildarray = $GLOBALS["bid".$tbgid] ?? null;
 
                 if ( is_array($buildarray) && isset( $buildarray[$newLevel] ) ) {
@@ -317,6 +325,13 @@ trait AutomationBattleResolution {
                     						if ($i == 41) $i = 99;
                     						if ($bdo['f'.$i] > 0 && $i != 40) $list[] = $i;
                     					}
+                    					// FIX (PHP log): daca $list e gol (niciun target alternativ
+                    					// cu nivel>0), rand(0, count($list)-1) devine rand(0,-1).
+                    					// PHP NU arunca eroare aici (verificat pe 8.3) - intoarce
+                    					// pseudo-random 0 sau -1, ambele chei inexistente in $list,
+                    					// deci "Undefined array key -1"/0 si $catapultTarget2=null.
+                    					// Pastram fallback-ul 99 folosit deja mai sus (linia ~301)
+                    					// pentru cazul "niciun target gasit".
                     					if (!empty($list)) {
                     						$catapultTarget2 = $list[ rand(0, count($list) - 1) ];
                     					} else {
@@ -623,6 +638,11 @@ trait AutomationBattleResolution {
         $expArray = $database->getVillageFields($from['wref'], 'exp1, exp2, exp3');
         $villexp  = ($expArray['exp1'] == 0) ? 0 : (($expArray['exp2'] == 0) ? 1 : (($expArray['exp3'] == 0) ? 2 : 3));
 
+        // HOTFIX "$cp0 undefined" (acelasi tipar ca FIX U1 din Units.php): tabelele $cp0..$cpN
+        // vin din Data/cp.php, incarcat pana acum doar de Session.php - deci pe traseul de CRON
+        // (fara Session) verificarea de CP la cucerire era OCOLITA silentios. Data/cp.php e
+        // acum inclus si in Automation.php; gardul ?? PHP_INT_MAX ramane fail-closed daca
+        // tabelul lipseste totusi (fara date de CP nu se poate cuceri), identic cu Settlers().
         $mode     = CP;
         $cp_mode  = $GLOBALS['cp' . $mode] ?? [];
         $need_cps = $cp_mode[count($varray1) + 1] ?? PHP_INT_MAX;
@@ -660,6 +680,11 @@ trait AutomationBattleResolution {
 
             $reducedLoyalty /= $battlepart['moralBonus'];
 
+            // Bug fix: Brewery (35) is capital-only but empire-wide — its effect
+            // must be checked on the attacker's CAPITAL, not on $data['from'] (the
+            // launching village, which may not be the capital at all), and only
+            // while a Mead-Festival is actually active there, not just because
+            // the Brewery has been built (it has no permanent effect).
             if ($owntribe == 2) {
                 $attackerCapital = $database->getVillage($from['owner'], 3);
                 if ($attackerCapital && (int)$attackerCapital['festival'] > $time && $this->getTypeLevel(35, $attackerCapital['wref']) > 0) {
@@ -692,6 +717,14 @@ trait AutomationBattleResolution {
 
         $database->setVillageFields($data['to'], ['loyalty', 'owner'], [0, $database->getVillageField($data['from'], 'owner')]);
 		
+		// Milestones: first WW village ever conquered, and — separately —
+        // first village ever conquered FROM ANOTHER PLAYER (not from
+        // Natars). $to is this function's own parameter (not re-fetched),
+        // so $to['natar']/$to['owner'] still reflect the village's state
+        // from BEFORE this conquest, which is exactly what we need here.
+        // natar==1 marks one of the 13 pre-built WW conquest targets (see
+        // Artifacts::createWWVillages()) — Natars' capital and artifact/
+        // plan villages are natar=0, so this check cannot misfire on those.
         if (defined('NEW_FUNCTIONS_MILESTONES') && NEW_FUNCTIONS_MILESTONES) {
             $newOwner = $database->getVillageField($data['from'], 'owner');
             if ((int)($to['natar'] ?? 0) === 1) {
@@ -1216,6 +1249,25 @@ trait AutomationBattleResolution {
 
         if ($unitlist) {
             $owndead['hero'] = (isset($battlepart['deadherodef']) ? $battlepart['deadherodef'] : '');
+
+            /**
+             * BUG FIXED (issue #379): units.hero ended up at -1.
+             *
+             * The value is still reported (it feeds the battle report and the
+             * points), but it must NOT be subtracted from units.hero here any
+             * more. Battle::applyHeroBattleDamage() already clears the column
+             * itself ("UPDATE units u JOIN vdata v SET u.hero = 0 WHERE
+             * v.owner = <hero owner>") the moment the hero dies, and that runs
+             * inside calculateBattle(), i.e. BEFORE this method.
+             *
+             * So the column went 1 -> 0 there and 0 - 1 -> -1 here: the
+             * village kept showing "-1 Hero" in the troop list while the
+             * Hero's Mansion correctly offered a revive.
+             *
+             * One writer only: the death is owned by applyHeroBattleDamage(),
+             * which is also the only place that knows about the hero's other
+             * possible locations (reinforcements, another village).
+             */
         }
 
         // modify units in DB
@@ -1312,6 +1364,21 @@ trait AutomationBattleResolution {
             }
 
             if ($enforce['hero'] > 0) {
+                /**
+                 * BUG FIXED (issue #379), same double subtraction as in
+                 * applyOwnDefenceCasualties(): a reinforcement hero who died
+                 * was already removed by Battle::applyHeroBattleDamage()
+                 * ("UPDATE enforcement e JOIN vdata v SET e.hero = 0"), so
+                 * subtracting him again here drove enforcement.hero to -1.
+                 *
+                 * $enforce still reads 1 because getEnforceVillage() answers
+                 * from the request cache filled before the battle, so the
+                 * stale row hid the problem instead of preventing it.
+                 *
+                 * The dead count below is kept: it is what the reinforcement
+                 * report and $wrong (which decides whether the wiped-out
+                 * reinforcement row is deleted) are built from.
+                 */
                 $dead['hero'] = $battlepart['deadheroref'][$enforce['id']];
                 $alldead['hero'] += $dead['hero'];
                 $wrong = $dead['hero'] != $enforce['hero'];
@@ -1773,6 +1840,13 @@ trait AutomationBattleResolution {
         global $database, $units;
 
         $DefenderUserData = $this->getCachedUser($database->getVillageField($data['to'],"owner"),1);
+        // BUG FIXED: when the target village was razed mid-batch (issue #298 scenario),
+        // getVillageField(...,"owner") returns 0 -> getCachedUser(0) finds no user ->
+        // $DefenderUserData is null, and getVillage() below also returns null (no vdata
+        // row). Every read from them then threw "Trying to access array offset on null".
+        // The razed-target bounce-home check downstream (empty($to['wref'])) already
+        // handles this case correctly - it just needs to survive getting there without
+        // warnings, so null-coalesce each read here; values stay null exactly as before.
         $DefenderID = $DefenderUserData["id"] ?? null;
         $targettribe = $DefenderUserData["tribe"] ?? null;
         $targetally = $DefenderUserData["alliance"] ?? null;
@@ -1939,7 +2013,8 @@ trait AutomationBattleResolution {
         $targettribe, $att_tribe,
         $Attacker, $AttackerHeroID, $Defender, $DefendersHeroID,
         $toF, $from, $targetally, $ownally,
-        &$heroxp, &$defheroxp
+        &$heroxp, &$defheroxp,
+        array $defensePointShares = []
     ) {
         global $database;
 
@@ -1988,22 +2063,106 @@ trait AutomationBattleResolution {
         // we don't need these two variables anymore
         unset($AttackerHeroID, $DefendersHeroID);
 
-        $database->modifyPoints(
-            $toF['owner'],
-            ['dpall', 'dp'],
-            [$totalpoint_def, $totalpoint_def]
-        );
+        // BUG FIXED (defense points awarded to the wrong player(s)): $totalpoint_def
+        // is the total defense-point value for the WHOLE battle (every defender's
+        // troops combined) - it was previously credited entirely to $toF['owner']
+        // (the attacked village's owner) even when other players' reinforcements
+        // did some or all of the actual defending. $defensePointShares (from
+        // Battle::computeDefenderForces(), threaded through calculateBattle()'s
+        // result as 'DefensePointShares') maps owner id -> that owner's own
+        // dp+cdp contribution to the battle. Split $totalpoint_def proportionally
+        // by each owner's share of the total, and credit each owner (and each
+        // owner's alliance) individually instead of dumping it all on one player.
+        //
+        // Fallback: if the breakdown is empty or sums to 0 (e.g. a pure scout
+        // skirmish with no measurable dp/cdp, or the caller didn't pass one),
+        // preserve the exact previous behavior - credit $toF['owner']/$targetally
+        // in full - rather than silently discarding the points.
+        $totalDefenseShare = array_sum($defensePointShares);
+
+        if ($totalDefenseShare <= 0) {
+
+            $database->modifyPoints(
+                $toF['owner'],
+                ['dpall', 'dp'],
+                [$totalpoint_def, $totalpoint_def]
+            );
+
+            $database->modifyPointsAlly(
+                $targetally,
+                ['Adp', 'dp'],
+                [$totalpoint_def, $totalpoint_def]
+            );
+
+        } else {
+
+            $perAlliancePoints = [];
+            $allianceCache = [];
+            $creditedTotal = 0;
+
+            // filter down to valid, positive shares FIRST, so "last owner gets
+            // the rounding remainder" below always lands on someone who is
+            // actually credited - picking it from the unfiltered list could
+            // land on a skipped (invalid or zero-share) entry and lose the
+            // remainder entirely.
+            $validShares = array_filter(
+                $defensePointShares,
+                function ($share, $ownerId) { return (int) $ownerId > 0 && $share > 0; },
+                ARRAY_FILTER_USE_BOTH
+            );
+
+            $ownerIds = array_keys($validShares);
+            $lastOwnerId = end($ownerIds);
+
+            foreach ($validShares as $ownerId => $share) {
+
+                $ownerId = (int) $ownerId;
+
+                // last owner in the split gets the rounding remainder, so the
+                // sum of everything credited always equals $totalpoint_def
+                // exactly (no points lost or invented to floating-point rounding)
+                if ($ownerId === $lastOwnerId) {
+                    $ownerPoints = $totalpoint_def - $creditedTotal;
+                } else {
+                    $ownerPoints = (int) round(($share / $totalDefenseShare) * $totalpoint_def);
+                }
+
+                $creditedTotal += $ownerPoints;
+
+                if ($ownerPoints == 0) {
+                    continue;
+                }
+
+                $database->modifyPoints(
+                    $ownerId,
+                    ['dpall', 'dp'],
+                    [$ownerPoints, $ownerPoints]
+                );
+
+                if (!isset($allianceCache[$ownerId])) {
+                    $allianceCache[$ownerId] = (int) $database->getUserField($ownerId, "alliance", 1);
+                }
+
+                $ownerAlliance = $allianceCache[$ownerId];
+
+                if ($ownerAlliance > 0) {
+                    $perAlliancePoints[$ownerAlliance] = ($perAlliancePoints[$ownerAlliance] ?? 0) + $ownerPoints;
+                }
+            }
+
+            foreach ($perAlliancePoints as $allianceId => $alliPoints) {
+                $database->modifyPointsAlly(
+                    $allianceId,
+                    ['Adp', 'dp'],
+                    [$alliPoints, $alliPoints]
+                );
+            }
+        }
 
         $database->modifyPoints(
             $from['owner'],
             ['apall', 'ap'],
             [$totalpoint_att, $totalpoint_att]
-        );
-
-        $database->modifyPointsAlly(
-            $targetally,
-            ['Adp', 'dp'],
-            [$totalpoint_def, $totalpoint_def]
         );
 
         $database->modifyPointsAlly(
@@ -2067,6 +2226,11 @@ trait AutomationBattleResolution {
                 $this->pruneResource();
 
                 $villageData = $database->getVillageFields($conqureby, 'clay, iron, wood, crop', false);
+                // BUG FIXED: $conqureby (the village about to receive the oasis) can itself
+                // have been razed earlier in the same batch, in which case getVillageFields()
+                // returns null and every read below threw "Trying to access array offset on
+                // null". Null-coalescing to 0 keeps the same effective result as before
+                // (intval(null / 10) already evaluated to 0) without the warning.
                 $totclay = intval(($villageData['clay'] ?? 0) / 10);
                 $totiron = intval(($villageData['iron'] ?? 0) / 10);
                 $totwood = intval(($villageData['wood'] ?? 0) / 10);
@@ -2146,6 +2310,8 @@ trait AutomationBattleResolution {
                         if ($canqured == 3 && $troopcount == 0) {
                             if ($type == 3) {
                                 $Oloyaltybefore = intval($to['loyalty']);
+                                //$database->modifyOasisLoyalty($data['to']);
+                                //$OasisInfo = $database->getOasisInfo($data['to']);
                                 $Oloyaltynow = intval($database->modifyOasisLoyalty($data['to']));//intval($OasisInfo['loyalty']);
                                 $info_hero = $hero_pic.",".rc_tok('RC_HERO_REDUCED_OASIS_LOYALTY', $Oloyaltynow, $Oloyaltybefore).$xp;
                             }
@@ -2336,7 +2502,7 @@ trait AutomationBattleResolution {
 								$database->modifyPointsAlly($targetally, 'RR', $totalstolentaken);
 								$database->modifyPointsAlly($ownally, 'RR', $totalstolengain);
                             }
-                        }else{
+                        }else{ //fix by ronix if only 1 chief left to conqured - don't add with zero enforces
                             if($totalsend_att - ($totaldead_att + (isset($totaltraped_att) ? $totaltraped_att : 0)) > 1){
 								$database->addEnforce2($data, $owntribe, $troopsdead[1], $troopsdead[2], $troopsdead[3], $troopsdead[4], $troopsdead[5], $troopsdead[6], $troopsdead[7], $troopsdead[8], $troopsdead[9], $troopsdead[10], $troopsdead[11]);
 							}
@@ -2463,7 +2629,26 @@ trait AutomationBattleResolution {
                     $tblevel      = $vt['tblevel'];
                     $stonemason   = $vt['stonemason'];
 
+                    // Issue #298: the target village no longer exists — it was razed
+                    // either earlier in this same batch ($razedTargets), or in an
+                    // earlier tick whose still-in-flight follow-up waves DelVillage()
+                    // failed to bounce. getMInfo() then returns NULL vdata columns
+                    // ($to['wref'] is NULL), so resolving a battle here would fight a
+                    // phantom village and compute the return trip from NULL coordinates
+                    // — a bogus arrival time that strands the troops in an endless loop
+                    // (report against "[?]"). Bounce the whole army straight home
+                    // instead, exactly like DelVillage() does for in-flight attacks,
+                    // and mark the movement processed so it stops being re-fetched.
                     if (isset($razedTargets[$data['to']]) || empty($to['wref'])) {
+                        // only own the bounce if DelVillage() hasn't already handled it
+                        // (setMovementProc() returns true only when it flips proc 0->1),
+                        // so we never create a duplicate return movement
+                        //
+                        // BUG FIXED: setMovementProc() lives on $database (DatabaseMovementQueries),
+                        // not on Automation - "$this->" was throwing "Call to undefined method
+                        // Automation::setMovementProc()" (fatal, killed the whole automation tick)
+                        // every time this razed-target bounce path was hit. Every other call site
+                        // in this file already uses $database->setMovementProc().
                         if ($database->setMovementProc($data['moveid'])) {
                             $bounceTime = $units->getWalkingTroopsTime($from['wref'], $data['to'], $from['owner'], $owntribe, $data, 1, 't');
                             $bounceEnd  = $database->getArtifactsValueInfluence($from['owner'], $from['wref'], 2, $bounceTime) + $AttackArrivalTime;
@@ -2492,8 +2677,7 @@ trait AutomationBattleResolution {
                     $spy_pic   = $atkUnits['spy_pic'];
                     $hero_pic  = $atkUnits['hero_pic'];
 
-                }else{ 
-					//It's an oasis
+                }else{ //It's an oasis
                     // target + battle environment — extracted to resolveOasisTarget() [#155]
                     $ot = $this->resolveOasisTarget($data, $dataarray, $data_num, $owntribe);
                     $DefenderID  = $ot['DefenderID'];
@@ -2681,6 +2865,12 @@ trait AutomationBattleResolution {
                     $alldead = [];
                     
                     for($i = 1; $i <= 90; $i++) $alldead[$i] = 0;
+                    // BUG FIXED: 'hero' key was only defensively set AFTER applyReinforcementCasualties()
+                    // ran (see the guard a few lines below), but that function itself does
+                    // "$alldead['hero'] += $dead['hero']" (by reference) as soon as a reinforcement
+                    // hero dies - triggering "Undefined array key 'hero'" on every such battle.
+                    // Initializing it here, like the numeric 1..90 keys above, removes the warning
+                    // with zero behavior change (0 + amount === the previous auto-vivified null + amount).
                     $alldead['hero'] = 0;
 
                     //kill own defence — extracted to applyOwnDefenceCasualties() [#155]
@@ -2704,6 +2894,8 @@ trait AutomationBattleResolution {
                     
                     if (empty($alldead['hero'])) $alldead['hero'] = 0;
                     if (empty($owndead['hero'])) $owndead['hero'] = 0;
+                    // sursa autoritativa: rezultatul luptei (owndead['hero'] se poate pierde
+                    // pe unele cai de executie, iar raportul afisa eroul aparator ca viu)
                     $deadhero = (int)(isset($battlepart['deadherodef']) && $battlepart['deadherodef'] > 0
                         ? $battlepart['deadherodef']
                         : $owndead['hero']);
@@ -2758,13 +2950,18 @@ trait AutomationBattleResolution {
                     $troopsdead11 = $dead11;
                     
                     // hero XP, player points and alliance points — extracted to calculateHeroXpAndPoints() [#155]
+                    // BUG FIXED: pass the per-owner defense breakdown through so
+                    // defense points get split across village owner + reinforcers
+                    // instead of all going to $toF['owner'] alone (see the fix
+                    // inside calculateHeroXpAndPoints() itself for the full story).
                     $totaldead_def = $this->calculateHeroXpAndPoints(
                         $alldead, $owndead,
                         [$dead1, $dead2, $dead3, $dead4, $dead5, $dead6, $dead7, $dead8, $dead9, $dead10, $dead11],
                         $targettribe, $att_tribe,
                         $Attacker, $AttackerHeroID, $Defender, $DefendersHeroID,
                         $toF, $from, $targetally, $ownally,
-                        $heroxp, $defheroxp
+                        $heroxp, $defheroxp,
+                        $battlepart['DefensePointShares'] ?? []
                     );
 
                     // resources lootable after cranny protection — extracted to resolveResourcesAfterBattle() [#155]
@@ -2833,6 +3030,12 @@ trait AutomationBattleResolution {
                     // delete the target village if it was destroyed — extracted to handleVillageDestruction() [#155]
                     $this->handleVillageDestruction($village_destroyed, $can_destroy, $data, $to, $varray);
 
+                    // remember the razed tile so any follow-up wave still queued in
+                    // this same batch bounces home instead of fighting a phantom
+                    // (now-deleted) village. Needed on top of the $to['wref'] check
+                    // because getMInfo() is cached: a same-batch wave would still see
+                    // the stale "alive" village row — see the guard right after
+                    // resolveVillageTarget() (issue #298).
                     if ($village_destroyed == 1 && $can_destroy == 1) {
                         $razedTargets[$data['to']] = true;
                     }
@@ -3024,7 +3227,13 @@ trait AutomationBattleResolution {
     // the gold-club +25% crop bonus (b4) keyed on the village owner.
     private function bountyGetResourceProd($resArray, $oasisNumber, $resourceType) {
         global $bid1, $bid2, $bid3, $bid4, $bid5, $bid6, $bid7, $bid8, $bid9, $database;
-		
+
+        // BUG FIXED: defensive fallback in case a caller ever passes a razed
+        // village's null resource array (updateRes() now guards its own call
+        // path, but this closes the loop here too) - treat as "no fields" so
+        // production is simply 0, instead of "Trying to access array offset
+        // on null" (+ the resulting null used as an array key below, which
+        // additionally raised "Deprecated: Using null as an array offset").
         if (!is_array($resArray)) $resArray = [];
 
         $prodBid = [1 => $bid1, 2 => $bid2, 3 => $bid3, 4 => $bid4][$resourceType];

@@ -77,10 +77,28 @@ trait DatabaseStatisticsQueries {
 		return mysqli_query($this->dblink,$q);
 	}
 
-    function isThereAWinner(){
+    function isThereAWinner($use_cache = true){
+        // BUG FIXED: this now runs on every logged-in page load (see isWinner()
+        // in Session.php), not just on winner.php - added the same request-scope
+        // cache pattern as countUser() above. Only a TRUE result is cached: once
+        // someone finishes the Wonder it can never flip back to false, so there
+        // is nothing to gain by re-querying again this request; a FALSE result
+        // is deliberately left uncached so every request keeps checking until
+        // the moment it does flip. Routed through $this->query() (deadlock /
+        // connection-loss retry) since it's now a much hotter path than before.
+        if ($use_cache && ($cachedValue = self::returnCachedContent(self::$serverFinishedCache, 0)) && !is_null($cachedValue)) {
+            return $cachedValue;
+        }
+
     	$q = "SELECT Count(*) as Total FROM ".TB_PREFIX."fdata WHERE f99 = 100 and f99t = 40";
-    	$result = mysqli_fetch_array(mysqli_query($this->dblink, $q), MYSQLI_ASSOC);
-    	return $result['Total'] > 0;
+    	$result = mysqli_fetch_array($this->query($q), MYSQLI_ASSOC);
+    	$finished = $result['Total'] > 0;
+
+    	if ($finished) {
+    	    self::$serverFinishedCache[0] = $finished;
+    	}
+
+    	return $finished;
     }
 
     // no need to cache this method
