@@ -244,8 +244,17 @@ trait DatabaseAllianceQueries {
         list($uid, $aid, $rank, $opt1, $opt2, $opt3, $opt4, $opt5, $opt6, $opt7, $opt8) = $this->escape_input($uid, $aid, $rank, $opt1, $opt2, $opt3, $opt4, $opt5, $opt6, $opt7, $opt8);
 
 
-		$q = "INSERT into " . TB_PREFIX . "ali_permission values(0,'$uid','$aid','$rank','$opt1','$opt2','$opt3','$opt4','$opt5','$opt6','$opt7','$opt8')";
-		mysqli_query($this->dblink,$q);
+		$q = "INSERT IGNORE into " . TB_PREFIX . "ali_permission values(0,'$uid','$aid','$rank','$opt1','$opt2','$opt3','$opt4','$opt5','$opt6','$opt7','$opt8')";
+		// BUG FIXED (fatal, log 3 sep): acceptInvite() in Alliance.php checks
+		// $session->alliance == 0 before calling this, but a double-submitted request
+		// (double-click / two near-simultaneous requests) can pass that check twice
+		// before either commits - ali_permission has a UNIQUE KEY on (uid, alliance),
+		// so the second INSERT threw an uncaught "Duplicate entry" mysqli_sql_exception,
+		// killing the whole request. INSERT IGNORE makes the (rare) duplicate a silent
+		// no-op instead: the first request's row already has correct, freshly-created
+		// permissions, so there's nothing meaningful to overwrite. Routed through
+		// $this->query() too, for the deadlock/connection-loss retry already there.
+		$this->query($q);
 
 		// update cache
         $insertID = mysqli_insert_id($this->dblink);
@@ -294,7 +303,12 @@ trait DatabaseAllianceQueries {
             self::$alliancePermissionsCache[ $uid . $aid ]['opt5'] = $opt5;
             self::$alliancePermissionsCache[ $uid . $aid ]['opt6'] = $opt6;
             self::$alliancePermissionsCache[ $uid . $aid ]['opt7'] = $opt7;
-            self::$alliancePermissionsCache[ $uid . $aid ]['opt8'] = $opt8;
+            // BUG FIXED: this function has no $opt8 parameter (only opt1..opt7 - see
+            // signature above and the UPDATE below, which also never touches the opt8
+            // column) - "self::...['opt8'] = $opt8" referenced an undefined variable on
+            // every call. Line removed entirely rather than inventing an opt8 param none
+            // of the 4 call sites pass: the DB column is untouched by this function, so
+            // leaving the cached opt8 value alone is what actually matches the DB.
         }
 	$q = "UPDATE " . TB_PREFIX . "ali_permission SET `rank` = '$rank',opt1 = '$opt1', opt2 = '$opt2', opt3 = '$opt3', opt4 = '$opt4', opt5 = '$opt5', opt6 = '$opt6', opt7 = '$opt7' WHERE uid = $uid AND alliance = $aid LIMIT 1";
     $result = mysqli_query($this->dblink, $q);

@@ -198,7 +198,12 @@ trait DatabaseStatisticsQueries {
         }
 
 		$q = "SELECT count(id) FROM " . TB_PREFIX . "users where id > 5";
-		$result = mysqli_query($this->dblink,$q);
+		// BUG FIXED (fatal, log 2 sep): raw mysqli_query() bypassed $this->query() (the
+		// only place with reconnect/retry). This is called on every automation tick via
+		// procNewClimbers() -> Ranking::procRankArray() -> countUser() - when the
+		// connection dropped between cron ticks, "MySQL server has gone away" (2006)
+		// killed the whole tick. Same fix already applied to getOasisEnforce().
+		$result = $this->query($q);
 		$row = mysqli_fetch_row($result);
 
         self::$usersCountCache[0] = $row[0];

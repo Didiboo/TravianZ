@@ -137,8 +137,15 @@ for ($i = (1 + $s); $i <= (10 + $s); $i++) {
 
         if (
             !$support_messages ||
-            ($support_messages && $message->inbox1[$i - 1]['target'] != 1) ||
-            ($multihunter_messages && $message->inbox1[$i - 1]['target'] != 5)
+            // BUG FIXED (warning only): $message->inbox1[$i - 1] intentionally kept as-is
+            // (see "IMPORTANT: păstrăm bug original inbox1" above) - inbox1 is a different,
+            // differently-sized array than sent1, so these indices commonly don't exist.
+            // Null-coalescing gives the exact same result as before (undefined key/null
+            // offset both evaluated to NULL, and NULL != 1 / NULL != 5 are both true) -
+            // just without the "Undefined array key" + "array offset on null" warning
+            // pair firing on every one of the up to 10 rows on this page.
+            ($support_messages && ($message->inbox1[$i - 1]['target'] ?? null) != 1) ||
+            ($multihunter_messages && ($message->inbox1[$i - 1]['target'] ?? null) != 5)
         ) {
             $sent_as_text =
                 "<input class=\"check\" type=\"checkbox\" name=\"n" . $name . "\" value=\"" . $msg['id'] . "\" />";
