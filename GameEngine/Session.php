@@ -426,7 +426,7 @@ function __construct() {
         $idParam = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
         if (
-            in_array($requiredPage, ['build.php', 'plus1.php', 'a2b.php'], true) ||
+            in_array($requiredPage, ['build.php', 'plus1.php', 'a2b.php', 'allianz.php'], true) ||
             ($requiredPage === 'plus.php' && $idParam >= 7)
         ) {
             header('Location: winner.php');
