@@ -261,7 +261,12 @@ trait AutomationStarvation {
                 }
                 break;
             case 2: // own units
-                $database->modifyUnit($starv['wref'], array_keys($killedUnits), array_values($killedUnits), [0]);
+                // BUG FIXED: modifyUnit() indexes $array_mode[$i] per unit (no scalar
+                // broadcast), but only one mode element was passed here regardless of how
+                // many unit types starved -> "Undefined array key 1"/"2" whenever more than
+                // one troop type died of starvation in the same tick. All deaths use mode 0
+                // (subtract), so fill one 0 per unit - identical resulting SQL, no warning.
+                $database->modifyUnit($starv['wref'], array_keys($killedUnits), array_values($killedUnits), array_fill(0, count($killedUnits), 0));
                 break;
             case 3: // moving attacks.
                 if($totalKilledUnits < $totalUnits){

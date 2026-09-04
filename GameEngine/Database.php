@@ -212,6 +212,12 @@ class MYSQLi_DB implements IDbConnection {
         $usersCountCache = [],
 
         /**
+         * @var array Cache of whether the server has been won (fdata f99/f99t
+         * check). Only ever holds a TRUE value - see isThereAWinner().
+         */
+        $serverFinishedCache = [],
+
+        /**
          * @var array Cache of alliances count.
          */
         $allianceCountCache = [],

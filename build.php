@@ -223,6 +223,25 @@ if ($session->goldclub == 1 && count($session->villages) > 1) {
     }
 }
 
+// FIX (PHP log): $create trebuie sa fie mereu definit inainte de
+// farmlist.tpl (if($create==1)/elseif==2/elseif==3), altfel "Undefined
+// variable $create" x3. Vechiul cod il seta doar in interiorul blocului
+// de mai jos, dar cand $_GET['action'] e setat la o valoare care nu
+// se potriveste cu niciunul dintre cele 3 cazuri (ex. action=showSlot
+// fara eid, sau eid=0) nu exista niciun "else" care sa-l initializeze.
+// Default sigur, suprascris mai jos daca vreunul din cazuri se potriveste.
+$create = 0;
+
+/**
+ * ANOMALIE SEMNALATA (neatinsa - nu face parte din erorile din log):
+ * "isset($_GET['t']) == 99" nu compara valoarea lui t cu 99, ci
+ * compara boolean-ul isset() (true/false) cu intreg-ul 99. In PHP,
+ * 99 se converteste la bool(true) in comparatie, deci conditia e
+ * adevarata pentru ORICE valoare a lui $_GET['t'] cat timp e setat
+ * (nu doar t=99), si falsa doar cand t lipseste complet. Probabil
+ * intentia a fost "$_GET['t'] == 99". Las neschimbat - decizi tu daca
+ * vrei sa restrangi blocul doar la t=99 real.
+ */
 if ($session->goldclub == 1) {
     if (isset($_GET['t']) == 99) {
         if(isset($_GET['action'])){
@@ -368,9 +387,16 @@ if(isset($_GET['id']) || isset($_GET['gid']) || $route == 1 || isset($_POST['rou
 	else {
 		if(isset($_GET['t'])) {
 		    if($_GET['t'] == 1) $_SESSION['loadMarket'] = 1;
-			include("Templates/Build/".$village->resarray['f'.$_GET['id'].'t']."_".$_GET['t'].".tpl");
+			// FIX (PHP log): pentru un tab (t) care nu exista pentru cladirea
+			// curenta (ex. link vechi/stale catre gid=19 cu t=3, care nu are
+			// niciun ..._3.tpl), include() arunca Warning "Failed to open
+			// stream" de doua ori (o data la include, o data la eroarea de
+			// deschidere). Verificam intai ca fisierul tinta chiar exista.
+			$buildTabFile = "Templates/Build/".$village->resarray['f'.$_GET['id'].'t']."_".$_GET['t'].".tpl";
+			if (file_exists($buildTabFile)) include($buildTabFile);
 		} elseif(isset($_GET['s'])) {
-			include("Templates/Build/".$village->resarray['f'.$_GET['id'].'t']."_".$_GET['s'].".tpl");
+			$buildTabFile = "Templates/Build/".$village->resarray['f'.$_GET['id'].'t']."_".$_GET['s'].".tpl";
+			if (file_exists($buildTabFile)) include($buildTabFile);
 		}
 		else include("Templates/Build/".$village->resarray['f'.$_GET['id'].'t'].".tpl");
 		

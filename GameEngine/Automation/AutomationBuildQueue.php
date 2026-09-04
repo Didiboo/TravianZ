@@ -219,13 +219,6 @@ trait AutomationBuildQueue {
 
                 $buildarray = $GLOBALS["bid".$type];
 
-                // FIX: capacitatea de depozitare se RECALCULEAZA din cladirile
-                // ramase, dupa ce nivelul nou e scris mai jos. Scaderea de
-                // dinainte lua `attri` al nivelului, dar `attri` e capacitatea
-                // TOTALA la acel nivel (1200, 1700, 2300...), nu incrementul -
-                // deci taia prea mult. Ignora si STORAGE_MULTIPLIER. Efectul era
-                // ascuns de pragul STORAGE_BASE si "reparat" abia la urmatoarea
-                // rulare a lui updateStore().
                 $needsStorageRecalc = in_array($type, [10, 11, 38, 39]);
 
                 if ($level == 1) $clear = ",f".$vil['buildnumber']."t=0";

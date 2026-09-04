@@ -557,7 +557,8 @@ class Battle {
     $defForces = $this->computeDefenderForces(
         $Defender, $def_ab, $type,
         $defender_artefact, $defenderhero,
-        $DefenderWref, $defReinforcements
+        $DefenderWref, $defReinforcements,
+        $DefenderID
     );
 
     $dp       = $defForces['dp'];
@@ -623,6 +624,10 @@ class Battle {
 
     $result['Attack_points'] = $rap;
     $result['Defend_points'] = $rdp;
+    // BUG FIXED (defense points): per-owner dp+cdp breakdown, for splitting
+    // Defend_points proportionally in AutomationBattleResolution.php instead of
+    // crediting the whole battle's defense points to the village owner alone.
+    $result['DefensePointShares'] = $defForces['perOwnerDp'];
 
     $winner = ($rap > $rdp);
 
@@ -888,7 +893,8 @@ class Battle {
 	private function computeDefenderForces(
     $Defender, $def_ab, $type,
     $defender_artefact, $defenderhero,
-    $DefenderWref, $defReinforcements
+    $DefenderWref, $defReinforcements,
+    $DefenderID = 0
 ) {
 
     global $database;
@@ -898,6 +904,12 @@ class Battle {
     $involve = 0;
     $detected = false;
     $defHeroUnit = null;
+    // BUG FIXED (defense points): tracks how much of the total dp+cdp pool each
+    // owner contributed (village owner's own troops + each reinforcement sender's
+    // troops), keyed by owner id. Purely additive - only consumed by the new
+    // 'perOwnerDp' return key below, doesn't change $dp/$cdp or anything else.
+    $perOwnerDp = [];
+    $DefenderID = (int) $DefenderID;
 
     /******************************************************************
      * DEFENDER BASE FORCES
@@ -912,6 +924,10 @@ class Battle {
 
         if (!$detected && $datadefScout['detect']) {
             $detected = $datadefScout['detect'];
+        }
+
+        if ($DefenderID > 0) {
+            $perOwnerDp[$DefenderID] = ($perOwnerDp[$DefenderID] ?? 0) + $datadefScout['dp'] + $datadefScout['cdp'];
         }
 
     } else {
@@ -943,6 +959,10 @@ class Battle {
 
         $dp += $own_dp;
         $cdp += $own_cdp;
+
+        if ($DefenderID > 0) {
+            $perOwnerDp[$DefenderID] = ($perOwnerDp[$DefenderID] ?? 0) + $own_dp + $own_cdp;
+        }
     }
 
     /******************************************************************
@@ -1003,6 +1023,10 @@ class Battle {
                     $detected = $datadefScout['detect'];
                 }
 
+                if ($owner > 0) {
+                    $perOwnerDp[$owner] = ($perOwnerDp[$owner] ?? 0) + $datadefScout['dp'] + $datadefScout['cdp'];
+                }
+
             } else {
 
                 $datadef = $this->getDataDef($defenders, $def_ab);
@@ -1029,6 +1053,10 @@ class Battle {
 
                 $dp  += $reinf_dp;
                 $cdp += $reinf_cdp;
+
+                if ($owner > 0) {
+                    $perOwnerDp[$owner] = ($perOwnerDp[$owner] ?? 0) + $reinf_dp + $reinf_cdp;
+                }
             }
         }
     }
@@ -1039,7 +1067,11 @@ class Battle {
         'involve'       => $involve,
         'detected'      => $detected,
         'def_hero_unit' => $defHeroUnit,
-        'DefendersAll'  => $DefendersAll
+        'DefendersAll'  => $DefendersAll,
+        // BUG FIXED (defense points): owner id -> dp+cdp contributed, so callers
+        // can split battle-outcome defense points proportionally per defender
+        // instead of awarding the whole battle's points to the village owner.
+        'perOwnerDp'    => $perOwnerDp
     ];
 }
 

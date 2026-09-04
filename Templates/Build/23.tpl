@@ -27,7 +27,13 @@ $multiplier = (($session->tribe == 3) ? 2 : 1) * CRANNY_CAPACITY;
 $actualLevel = (int)$village->resarray['f'.$id];
 $level = min($actualLevel + 1 + $loopsame + $doublebuild + $master, 10);
 
-$currentHidden = $database->getArtifactsValueInfluence($session->uid, $village->wid, 7, $bid23[$actualLevel]['attri'] * $multiplier);
+// FIX (PHP log): $bid23 e indexat de la nivel 1 (nu are cheia 0). Daca
+// cranny e la nivel 0 (abia demolat/darat jos de catapulte, sau link
+// deschis inainte ca nivelul curent sa fi fost incarcat), $bid23[0] nu
+// exista -> "Undefined array key 0" + acces pe null pe linia urmatoare.
+// La nivel 0 nu exista "attri" curent, deci tratam ca 0 unitati ascunse.
+$currentAttri = $actualLevel > 0 ? $bid23[$actualLevel]['attri'] : 0;
+$currentHidden = $database->getArtifactsValueInfluence($session->uid, $village->wid, 7, $currentAttri * $multiplier);
 $nextHidden = $database->getArtifactsValueInfluence($session->uid, $village->wid, 7, $bid23[$level]['attri'] * $multiplier);
 ?>
 <div id="build" class="gid23">

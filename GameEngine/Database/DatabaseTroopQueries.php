@@ -692,7 +692,11 @@ trait DatabaseTroopQueries {
 
         // return a single value
         if (!$array_passed) {
-            self::$villageFromReinforcementsCache[$vid[0].$from[0]] = $result[0];
+            // BUG FIXED: $result is empty (no reinforcement row for this vid/from
+            // pair - a normal, common outcome) -> $result[0] doesn't exist ->
+            // "Undefined array key 0". Null-coalesce; the cached value stays null
+            // exactly as before, just without the warning on every miss.
+            self::$villageFromReinforcementsCache[$vid[0].$from[0]] = $result[0] ?? null;
         } else {
             if ($result && count($result)) {
                 foreach ( $result as $record ) {
@@ -762,7 +766,13 @@ trait DatabaseTroopQueries {
         } else if ($mode == 3) {
             $q = "SELECT e.*,o.conqured,o.wref,o.high, o.owner as ownero, v.owner as ownerv FROM ".TB_PREFIX."enforcement as e LEFT JOIN ".TB_PREFIX."odata as o ON e.vref=o.wref LEFT JOIN ".TB_PREFIX."vdata as v ON e.from=v.wref where o.conqured IN(".implode(', ', $ref).") AND o.owner=v.owner";
         }
-        $result = $this->mysqli_fetch_all(mysqli_query($this->dblink,$q));
+        // BUG FIXED (fatal, log 3 sep): raw mysqli_query() here bypassed $this->query(),
+        // the only place with retry/reconnect logic - when the connection drops between
+        // cron.php's internal ticks (cod 2006/2013, "MySQL server has gone away"), this
+        // call threw an uncaught mysqli_sql_exception straight from Technology::getUpkeep(),
+        // killing the whole automation tick. Routed through $this->query() (identical
+        // return value) so it now benefits from the reconnect-and-retry added there.
+        $result = $this->mysqli_fetch_all($this->query($q));
 
         // return a single value
         if (!$array_passed) {
@@ -895,6 +905,20 @@ trait DatabaseTroopQueries {
 		    $unit = [$unit];
 		    $amt = [(int) $amt];
 		    $mode = [(int) $mode];
+        }
+
+        // BUG FIXED: this only normalized $amt/$mode into arrays when $unit itself
+        // wasn't one. AutomationStarvation.php calls this with $unit/$amt as arrays
+        // (array_keys/array_values($killedUnits)) but $mode as a bare scalar (0,
+        // meaning "subtract, for all of them") - $mode stayed an int, so
+        // "(int) $mode[$index]" below tried to array-offset an int ("Trying to
+        // access array offset on int"). Broadcast a scalar $amt/$mode to match
+        // $unit's length; already-matching arrays are left untouched.
+        if (!is_array($amt)) {
+            $amt = array_fill(0, count($unit), (int) $amt);
+        }
+        if (!is_array($mode)) {
+            $mode = array_fill(0, count($unit), (int) $mode);
         }
 
         foreach ($unit as $index => $unitType) {

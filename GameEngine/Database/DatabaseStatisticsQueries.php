@@ -77,10 +77,28 @@ trait DatabaseStatisticsQueries {
 		return mysqli_query($this->dblink,$q);
 	}
 
-    function isThereAWinner(){
+    function isThereAWinner($use_cache = true){
+        // BUG FIXED: this now runs on every logged-in page load (see isWinner()
+        // in Session.php), not just on winner.php - added the same request-scope
+        // cache pattern as countUser() above. Only a TRUE result is cached: once
+        // someone finishes the Wonder it can never flip back to false, so there
+        // is nothing to gain by re-querying again this request; a FALSE result
+        // is deliberately left uncached so every request keeps checking until
+        // the moment it does flip. Routed through $this->query() (deadlock /
+        // connection-loss retry) since it's now a much hotter path than before.
+        if ($use_cache && ($cachedValue = self::returnCachedContent(self::$serverFinishedCache, 0)) && !is_null($cachedValue)) {
+            return $cachedValue;
+        }
+
     	$q = "SELECT Count(*) as Total FROM ".TB_PREFIX."fdata WHERE f99 = 100 and f99t = 40";
-    	$result = mysqli_fetch_array(mysqli_query($this->dblink, $q), MYSQLI_ASSOC);
-    	return $result['Total'] > 0;
+    	$result = mysqli_fetch_array($this->query($q), MYSQLI_ASSOC);
+    	$finished = $result['Total'] > 0;
+
+    	if ($finished) {
+    	    self::$serverFinishedCache[0] = $finished;
+    	}
+
+    	return $finished;
     }
 
     // no need to cache this method
@@ -92,8 +110,12 @@ trait DatabaseStatisticsQueries {
 	     * jucatorii acelor triburi nu-si vedeau niciodata satele acolo.
 	     *
 	     * Aceeasi lista completa e folosita deja in winner.php.
+	     *
+	     * BUG REPARAT #2: u.access<8/10 excludea Multihunter(8)/Admin(9) dar nu si
+	     * conturile banate (access=0, 0 < 8 e adevarat); u.access>0 adaugat, deci
+	     * satele unui cont banat nu mai sunt colorate dupa rang pe harta lumii.
 	     */
-	    $q = "SELECT v.wref,v.name,v.owner,v.pop FROM " . TB_PREFIX . "vdata AS v," . TB_PREFIX . "users AS u WHERE v.owner=u.id AND u.tribe IN(1,2,3,6,7,8,9".(SHOW_NATARS ? ',5' : '').") AND v.wref != '' AND u.access<" . (INCLUDE_ADMIN ? "10" : "8");
+	    $q = "SELECT v.wref,v.name,v.owner,v.pop FROM " . TB_PREFIX . "vdata AS v," . TB_PREFIX . "users AS u WHERE v.owner=u.id AND u.tribe IN(1,2,3,6,7,8,9".(SHOW_NATARS ? ',5' : '').") AND v.wref != '' AND u.access>0 AND u.access<" . (INCLUDE_ADMIN ? "10" : "8");
 		$result = mysqli_query($this->dblink,$q);
 		return $this->mysqli_fetch_all($result);
 	}
@@ -194,7 +216,12 @@ trait DatabaseStatisticsQueries {
         }
 
 		$q = "SELECT count(id) FROM " . TB_PREFIX . "users where id > 5";
-		$result = mysqli_query($this->dblink,$q);
+		// BUG FIXED (fatal, log 2 sep): raw mysqli_query() bypassed $this->query() (the
+		// only place with reconnect/retry). This is called on every automation tick via
+		// procNewClimbers() -> Ranking::procRankArray() -> countUser() - when the
+		// connection dropped between cron ticks, "MySQL server has gone away" (2006)
+		// killed the whole tick. Same fix already applied to getOasisEnforce().
+		$result = $this->query($q);
 		$row = mysqli_fetch_row($result);
 
         self::$usersCountCache[0] = $row[0];

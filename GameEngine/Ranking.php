@@ -277,6 +277,8 @@
 				if($GLOBALS['db']->countUser() > 0){
 				$holder = array();
 				$tribeCondition = SHOW_NATARS ? "(u.tribe <= 9) AND (u.id > 5 OR u.id = 3)" : "u.tribe IN (1,2,3,6,7,8,9) AND u.id > 5";
+				// BUG REPARAT: access<8/10 excludea Multihunter(8)/Admin(9) dar nu si
+				// conturile banate (access=0, 0 < 8 e adevarat); access>0 adaugat.
 				$q = "
 				SELECT
 				u.id AS userid,
@@ -292,7 +294,7 @@
 				LEFT JOIN " . TB_PREFIX . "alidata a
 				ON a.id = u.alliance
 				WHERE
-				u.access < " . (INCLUDE_ADMIN ? 10 : 8) . "
+				u.access > 0 AND u.access < " . (INCLUDE_ADMIN ? 10 : 8) . "
 				AND $tribeCondition
 				GROUP BY
 				u.id
@@ -328,10 +330,11 @@
 				global $multisort, $database;
 				$race = $database->escape((int) $race);
 				$holder = array();
+				// BUG REPARAT: vezi comentariul din procRankArray() de mai sus (access>0 adaugat).
 				$q = "SELECT u.id AS userid, u.tribe, u.username, u.alliance, COALESCE(SUM(v.pop),0) AS totalpop, COUNT(CASE WHEN v.type != 99 THEN v.wref END) AS totalvillages, a.tag AS allitag
 				FROM " . TB_PREFIX . "users u LEFT JOIN " . TB_PREFIX . "vdata v ON v.owner = u.id LEFT JOIN " . TB_PREFIX . "alidata a ON a.id = u.alliance
 				WHERE u.tribe = $race
-				AND u.access < " . (INCLUDE_ADMIN ? "10" : "8") . " AND u.id > 5 GROUP BY u.id ORDER BY totalpop DESC, totalvillages DESC, userid DESC";
+				AND u.access > 0 AND u.access < " . (INCLUDE_ADMIN ? "10" : "8") . " AND u.id > 5 GROUP BY u.id ORDER BY totalpop DESC, totalvillages DESC, userid DESC";
 				$result = (mysqli_query($database->dblink,$q));
 				$datas = [];
 				while($row = mysqli_fetch_assoc($result)) {
@@ -366,9 +369,10 @@
 		public function procAttRankArray() {
 				global $multisort, $database;
 				$holder = array();
+			// BUG REPARAT: vezi comentariul din procRankArray() mai sus (access>0 adaugat).
 			$q = "SELECT u.id AS userid, u.username, u.apall, COUNT(CASE WHEN v.type != 99 THEN v.wref END) AS totalvillages, COALESCE(SUM(v.pop),0) AS pop
 			FROM " . TB_PREFIX . "users u LEFT JOIN " . TB_PREFIX . "vdata v ON v.owner = u.id
-			WHERE u.apall >= 0 AND u.access < " . (INCLUDE_ADMIN ? 10 : 8) . " AND u.tribe IN (1,2,3,6,7,8,9) AND u.id > 5
+			WHERE u.apall >= 0 AND u.access > 0 AND u.access < " . (INCLUDE_ADMIN ? 10 : 8) . " AND u.tribe IN (1,2,3,6,7,8,9) AND u.id > 5
 			GROUP BY u.id ORDER BY u.apall DESC, pop DESC, u.id DESC";
 				$result = mysqli_query($database->dblink,$q) or die(mysqli_error($database->dblink));
 				$datas = [];
@@ -394,9 +398,10 @@
 		public function procDefRankArray() {
 			    global $database;
 				$holder = array();
+			// BUG REPARAT: vezi comentariul din procRankArray() mai sus (access>0 adaugat).
 			$q = "SELECT u.id AS userid, u.username, u.dpall, COUNT(CASE WHEN v.type != 99 THEN v.wref END) AS totalvillages, COALESCE(SUM(v.pop),0) AS pop
 			FROM " . TB_PREFIX . "users u LEFT JOIN " . TB_PREFIX . "vdata v ON v.owner = u.id
-			WHERE u.dpall >= 0 AND u.access < " . (INCLUDE_ADMIN ? 10 : 8) . " AND u.tribe IN (1,2,3,6,7,8,9) AND u.id > 5
+			WHERE u.dpall >= 0 AND u.access > 0 AND u.access < " . (INCLUDE_ADMIN ? 10 : 8) . " AND u.tribe IN (1,2,3,6,7,8,9) AND u.id > 5
 			GROUP BY u.id ORDER BY u.dpall DESC, pop DESC, u.id DESC";
 				$result = mysqli_query($database->dblink,$q) or die(mysqli_error($database->dblink));
 				$datas = [];

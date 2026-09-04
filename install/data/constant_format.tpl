@@ -266,7 +266,7 @@ define("NATARS_WW_BUILDING_PLAN_SPAWN_TIME",%NATARS_WW_BUILDING_PLAN_SPAWN_TIME%
 // of their troops to defend it.
 //
 // 0 = The Natars do not build a World Wonder.
-define("NATARS_WW_START_DELAY", %NATARS_WW_START_DELAY%); 
+define("NATARS_WW_START_DELAY",%NATARS_WW_START_DELAY%); 
 
 // ***** Nature troops regeneration time
 define("NATURE_REGTIME",%NATURE_REGTIME%); 

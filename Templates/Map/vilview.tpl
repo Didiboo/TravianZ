@@ -226,7 +226,16 @@ if($isOasis){
 }
 ?>
 </td></tr>
-<?php } elseif($basearray['occupied'] && $basearray['wref']!= $_SESSION['wid']){
+<?php
+/**
+ * FIX (PHP log): $_SESSION['wid'] se seteaza doar in paginile care
+ * primesc newdid in query string. karte.php insa poate ajunge aici
+ * doar cu ?d=X&c=Y (popup sat pe harta, fara newdid) - daca sesiunea
+ * n-a trecut inca prin nicio pagina cu newdid (ex. sesiune noua),
+ * cheia lipseste -> "Undefined array key wid". Fallback 0 (nu poate
+ * fi egal cu niciun wref real).
+ */
+} elseif($basearray['occupied'] && $basearray['wref']!= ($_SESSION['wid'] ?? 0)){
     $tbl = $isOasis? 'odata' : 'vdata';
     $qr = $database->dblink->query('SELECT owner FROM `'.TB_PREFIX.$tbl.'` WHERE wref='.(int)$d);
     $ownerId = $qr? $qr->fetch_assoc() : array('owner'=>0);

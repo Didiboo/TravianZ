@@ -86,10 +86,6 @@ trait AutomationAccountMaintenance {
         
         if(AUTO_DEL_INACTIVE) {
             $time = time() - UN_ACT_TIME;
-
-            // BUG REPARAT: lista era 1,2,3 - conturile inactive ale triburilor noi
-            // (huni, egipteni, spartani, vikingi) nu se stergeau niciodata si
-            // ramaneau pe harta la nesfarsit.
             $q = "INSERT INTO ".TB_PREFIX."deleting SELECT id, UNIX_TIMESTAMP() FROM ".TB_PREFIX."users WHERE timestamp < $time AND tribe IN(1, 2, 3, 6, 7, 8, 9)";
             $database->query($q);
         }
@@ -324,9 +320,6 @@ trait AutomationAccountMaintenance {
             $database->cacheResourceLevels(array_keys($vilIDs));
 
             foreach($villages as $village){
-                // HOTFIX warning "$attri undefined": $attri se seteaza doar daca satul are
-                // un camp tip 18 (Stonemason); fara initializare, valoarea "scapa" din satul
-                // anterior (rezultatul final era acelasi, fiind un max, dar cu warning in log)
                 $attri = 0;
                 $field = $database->getResourceLevel($village['wref'], false);
                 for($i = 19; $i <= 40; $i++){

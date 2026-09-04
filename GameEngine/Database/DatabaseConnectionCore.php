@@ -278,12 +278,31 @@ trait DatabaseConnectionCore {
         // se arunca mai departe neschimbata. Sigur fata de tranzactii: singurele tranzactii
         // explicite din cod (updateStore, populateWorldData) folosesc mysqli_query direct,
         // nu metoda aceasta - verificat pe tot repo-ul.
+        //
+        // HOTFIX "MySQL server has gone away" (log 1-3 sep, cod 2006/CR_SERVER_GONE_ERROR
+        // sau 2013/CR_SERVER_LOST): conexiunea poate cadea intre tick-urile ciclului intern
+        // al cron.php (pana la CRON_LOOP_SECONDS=300s), la fel de fatal pe PHP 8.1+. Cod
+        // separat de cel de deadlock (reconectam, nu doar reincercam): $this->reconnect()
+        // (deja existent in acest trait) inchide si redeschide $this->dblink inainte de a
+        // repeta interogarea. Maxim 2 reconectari, dupa care aruncam eroarea mai departe.
         $attempt = 0;
+        $reconnectAttempt = 0;
         while (true) {
             try {
                 return mysqli_query($this->dblink, $query);
             } catch (mysqli_sql_exception $e) {
-                if (!in_array((int) $e->getCode(), [1213, 1205], true) || ++$attempt >= 3) {
+                $code = (int) $e->getCode();
+
+                if (in_array($code, [2006, 2013], true)) {
+                    if (++$reconnectAttempt > 2) {
+                        throw $e;
+                    }
+                    $this->reconnect();
+                    usleep(150000 * $reconnectAttempt);
+                    continue;
+                }
+
+                if (!in_array($code, [1213, 1205], true) || ++$attempt >= 3) {
                     throw $e;
                 }
                 usleep(150000 * $attempt); // 150ms, apoi 300ms

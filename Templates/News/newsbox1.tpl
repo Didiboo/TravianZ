@@ -37,11 +37,15 @@ if ($online_query) {
 // ======================================================
 $top_username = '-';
 
+// BUG REPARAT: cu INCLUDE_ADMIN pornit nu exista deloc filtru pe access, iar cu
+// INCLUDE_ADMIN oprit "access < 8" nu excludea conturile banate (access=0, 0 < 8
+// e adevarat) - deci un jucator banat putea aparea ca "Top player" in sidebar.
+// access > 0 exclude banul in ambele cazuri, pastrand comportamentul INCLUDE_ADMIN.
 $top_query = mysqli_query(
     $database->dblink,
     "SELECT username 
      FROM " . TB_PREFIX . "users 
-     WHERE " . (INCLUDE_ADMIN ? '' : 'access < 8 AND ') . "
+     WHERE " . (INCLUDE_ADMIN ? 'access > 0 AND ' : 'access > 0 AND access < 8 AND ') . "
      id > 5 
      AND tribe IN (1,2,3,6,7,8,9) 
      AND tribe > 0 
