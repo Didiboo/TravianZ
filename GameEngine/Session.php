@@ -390,19 +390,21 @@ function __construct() {
     /**
      * FIXED: winner condition bug (safe parentheses + logic)
      *
-     * BUG FIXED (game-lock after server win): this only protected 3 pages
-     * (build.php, plus1.php, plus.php?id>=7). Every other gameplay-changing
-     * endpoint - most importantly a2b.php (attacks/reinforcements/troop
-     * movements), but also dorf1.php/dorf2.php/dorf3.php, karte.php, resource
-     * transfers, troop training, etc. - stayed fully playable after the server
-     * was won, including actually executing on the backend (INSERT/UPDATE
-     * attack/reinforce) before any page ever redirected. Widened to a blanket
-     * lock: everything except winner.php itself and logout.php now redirects,
-     * for every logged-in request. This method is called from checkLogin(),
-     * which runs at the very start of Session::__construct() - itself the very
-     * first include in Village.php, which every gameplay page includes before
-     * any of its own logic - so the lock (and the exit; that comes with it)
-     * fires before a single gameplay DB write can happen, not just as a
+     * BUG FIXED (game-lock after server win): originally only protected 3 pages
+     * (build.php, plus1.php, plus.php?id>=7). Added a2b.php - the rally-point
+     * "send troops" endpoint (attacks/raids/reinforcements/resource sends) -
+     * which is the actual gameplay-changing action that needs to stop once the
+     * server is won. Deliberately scoped to just these action endpoints, NOT a
+     * blanket lock: dorf1.php/dorf2.php/dorf3.php, statistiken.php, messages,
+     * reports, karte.php etc. must all stay fully browsable after the winner
+     * announcement so players can keep looking around - only the actions that
+     * change game state (build/train and send troops) are blocked.
+     *
+     * This is called from checkLogin(), which runs at the very start of
+     * Session::__construct() - itself the very first include in Village.php,
+     * which every gameplay page includes before any of its own logic - so for
+     * a2b.php/build.php specifically, the block (and the exit; that comes with
+     * it) fires before a single gameplay DB write can happen, not just as a
      * frontend redirect. checkLogin() only calls this while $user is set (see
      * call site above), so anonymous visitors can still reach login.php to
      * authenticate; $this->inAdmin mirrors the same admin exemption already
@@ -421,12 +423,15 @@ function __construct() {
 
         $requiredPage = basename($_SERVER['PHP_SELF']);
 
-        if (in_array($requiredPage, ['winner.php', 'logout.php'], true)) {
-            return;
-        }
+        $idParam = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
-        header('Location: winner.php');
-        exit;
+        if (
+            in_array($requiredPage, ['build.php', 'plus1.php', 'a2b.php'], true) ||
+            ($requiredPage === 'plus.php' && $idParam >= 7)
+        ) {
+            header('Location: winner.php');
+            exit;
+        }
     }
 
     /**
